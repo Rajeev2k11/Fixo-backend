@@ -68,6 +68,12 @@ Record every decision I make in `docs/decisions.md` (date, decision, reason).
 - `pnpm dev` — run API and jobs in watch mode
 - `pnpm test` / `pnpm test:integration`
 - `pnpm lint` / `pnpm typecheck`
-- `pnpm db:generate` / `pnpm db:migrate`
+- `pnpm build` — compile all packages (Turborepo, cached)
+- `pnpm format` / `pnpm format:check` — Prettier
+- `pnpm db:generate` / `pnpm db:migrate` (added in Phase 1 step 1.3)
+
+Toolchain notes: all packages are ESM (`"type": "module"`, NestJS 12 is ESM-only), so relative
+imports use `.js` extensions. TypeScript is pinned to 6.x because typescript-eslint does not yet
+support TS 7.
 
 (Update this section as scripts are added.)

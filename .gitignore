@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+*.log
+.DS_Store
+
+# env files hold secrets; only the example is committed
+.env
+.env.*
+!.env.example
