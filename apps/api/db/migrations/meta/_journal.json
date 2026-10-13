@@ -43,6 +43,20 @@
       "when": 1791911511037,
       "tag": "0005_audit_log_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791912002990,
+      "tag": "0006_config_rule",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791912003639,
+      "tag": "0007_config_rule_constraints",
+      "breakpoints": true
     }
   ]
 }

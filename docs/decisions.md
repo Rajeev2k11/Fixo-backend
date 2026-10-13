@@ -107,6 +107,16 @@ Format: date · decision · reason · spec impact.
   end-of-life in April 2026 and no longer receives security fixes. Node 22 is LTS until April 2027.
 - **Spec impact:** None (the spec does not fix a Node version). CLAUDE.md stack line updated.
 
+### SPEC-4 — One generic config table instead of five (deviates from spec §K)
+- **Decision:** A single versioned `config_rule` table holds every configurable business value,
+  keyed by a namespaced key (`revenue.lead_fee`, `matching.lead_cap`, ...), with scope columns,
+  effective dates, maker-checker status and a jsonb value validated by a per-key Zod schema.
+- **Reason:** One resolver, one approval flow and one overlap constraint instead of five copies.
+  A rule type moves to its own typed table later only if it needs relational queries.
+- **Spec impact:** Replaces §K's `pricing_rule`, `revenue_rule`, `cancellation_rule`,
+  `marketplace_setting` and `ranking_weight` with keys in one table. Versioning, scope,
+  effective_from/to and created_by from §K are kept.
+
 ---
 
 ## Deferred (to be decided before the phase noted)
