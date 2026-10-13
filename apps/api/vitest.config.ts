@@ -7,5 +7,6 @@ export default defineConfig({
   test: {
     include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
     environment: 'node',
+    env: { LOG_LEVEL: 'silent' },
   },
 });
