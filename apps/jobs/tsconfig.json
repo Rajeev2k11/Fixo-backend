@@ -2,7 +2,9 @@
   "extends": "@fixo/config/tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    // Resolve @fixo/api to its TypeScript source, so typecheck and dev see live API code.
+    "customConditions": ["development"]
   },
   "include": ["src"]
 }

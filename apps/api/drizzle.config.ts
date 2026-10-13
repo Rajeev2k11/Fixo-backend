@@ -9,7 +9,7 @@ if (!url) throw new Error('DATABASE_URL is not set (copy .env.example to .env)')
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/modules/**/*.schema.ts',
+  schema: './src/**/*.schema.ts',
   out: './db/migrations',
   casing: 'snake_case',
   dbCredentials: { url },

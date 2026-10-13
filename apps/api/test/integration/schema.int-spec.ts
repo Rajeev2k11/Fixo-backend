@@ -15,9 +15,17 @@ const OUR_TABLES = `
   where n.nspname = 'public' and c.relkind = 'r'
     and not exists (select 1 from pg_depend d where d.objid = c.oid and d.deptype = 'e')`;
 
-// Reference tables that are not "operational rows" and so carry no city_id (CLAUDE.md rule 9).
+// Tables that are not "operational rows" and so carry no city_id (CLAUDE.md rule 9).
 // Adding a table here should be a deliberate, reviewed decision.
-const NO_CITY_ID = ['country', 'state', 'city'];
+const NO_CITY_ID = [
+  // geography reference data
+  'country',
+  'state',
+  'city',
+  // platform infrastructure (events may span cities; the payload carries city_id when relevant)
+  'outbox_event',
+  'processed_event',
+];
 
 describe('schema conventions (CLAUDE.md rule 9)', () => {
   it('every table has a uuid primary key named id', async () => {

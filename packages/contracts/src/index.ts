@@ -1,3 +1,4 @@
 // Shared request/response schemas, event schemas and error codes (Zod),
 // used by the API and the mobile apps.
 export * from './errors.js';
+export * from './events.js';

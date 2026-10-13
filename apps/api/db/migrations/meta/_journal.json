@@ -15,6 +15,13 @@
       "when": 1791904720025,
       "tag": "0001_seed_lucknow",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791906115054,
+      "tag": "0002_outbox",
+      "breakpoints": true
     }
   ]
 }

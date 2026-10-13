@@ -12,6 +12,7 @@ export default defineConfig({
       // Unit/e2e tests never need a database: point at a closed port so any accidental
       // query fails fast. Real-database tests live in test/integration.
       DATABASE_URL: 'postgres://unit:unit@127.0.0.1:1/unit',
+      REDIS_URL: 'redis://127.0.0.1:1',
     },
   },
 });

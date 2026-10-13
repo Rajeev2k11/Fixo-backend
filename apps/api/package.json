@@ -3,6 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./jobs": {
+      "development": "./src/jobs.module.ts",
+      "types": "./dist/jobs.module.d.ts",
+      "default": "./dist/jobs.module.js"
+    }
+  },
   "scripts": {
     "dev": "node --watch --import @swc-node/register/esm-register src/main.ts",
     "build": "tsc -p tsconfig.build.json",
@@ -19,7 +26,9 @@
     "@nestjs/common": "^12.1.2",
     "@nestjs/core": "^12.1.2",
     "@nestjs/platform-express": "^12.1.2",
+    "bullmq": "^6.3.14",
     "drizzle-orm": "^0.45.4",
+    "ioredis": "^6.0.0",
     "nestjs-pino": "^5.3.1",
     "pg": "^8.23.1",
     "pino": "^10.4.0",

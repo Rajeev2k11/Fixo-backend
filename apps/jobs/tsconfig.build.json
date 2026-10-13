@@ -3,7 +3,9 @@
   "compilerOptions": {
     "noEmit": false,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    // The build links against @fixo/api's compiled dist, not its source.
+    "customConditions": []
   },
   "include": ["src"]
 }

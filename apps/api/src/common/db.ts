@@ -6,6 +6,8 @@ import { env } from './env.js';
 
 export const DB = Symbol('DB');
 export type Db = NodePgDatabase;
+/** The handle inside `db.transaction(async (tx) => ...)`. Functions that must join a transaction take this. */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const DB_POOL = Symbol('DB_POOL');
 
