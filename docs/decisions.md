@@ -99,6 +99,16 @@ Format: date · decision · reason · spec impact.
 
 ---
 
+## 2026-10-13 — Toolchain
+
+### TOOL-1 — Minimum Node version raised to 22.12
+- **Decision:** `engines.node` is `>=22.12` (was "Node 20+"); `.nvmrc` 22; `@types/node` ^22.
+- **Reason:** Vitest 5 requires Node ^22.12, so tests could not run on Node 20. Node 20 reached
+  end-of-life in April 2026 and no longer receives security fixes. Node 22 is LTS until April 2027.
+- **Spec impact:** None (the spec does not fix a Node version). CLAUDE.md stack line updated.
+
+---
+
 ## Deferred (to be decided before the phase noted)
 - OBD-2 Lead-fee timing and refunds — Phase 5 (moot while fees are 0).
 - OBD-4 Mandatory in-app quote approval — Phase 6.

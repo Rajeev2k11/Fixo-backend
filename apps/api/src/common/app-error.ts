@@ -7,7 +7,8 @@ export class AppError extends Error {
     readonly status: number,
     message: string,
     readonly details: unknown = null,
+    options?: ErrorOptions, // { cause } is logged for 5xx, never sent to the client
   ) {
-    super(message);
+    super(message, options);
   }
 }

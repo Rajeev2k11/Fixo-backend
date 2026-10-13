@@ -1,5 +1,6 @@
 import { Server } from 'node:http';
 
+import { errorBodySchema } from '@fixo/contracts';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -24,11 +25,12 @@ describe('GET /v1/health', () => {
     await app.close();
   });
 
-  it('returns 200 with status ok', async () => {
+  // The 200 path needs a real database: see test/integration/health.int-spec.ts.
+  it('returns 503 SERVICE_UNAVAILABLE when the database is unreachable', async () => {
     const res = await request(server).get('/v1/health');
 
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.status).toBe(503);
+    expect(errorBodySchema.parse(res.body).error.code).toBe('SERVICE_UNAVAILABLE');
   });
 
   it('is only served under the /v1 prefix', async () => {

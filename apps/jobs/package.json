@@ -20,7 +20,7 @@
     "@fixo/config": "workspace:*",
     "@swc-node/register": "^1.12.1",
     "@swc/core": "^1.16.13",
-    "@types/node": "^20.19.43",
+    "@types/node": "^22.20.5",
     "eslint": "^10.12.0",
     "typescript": "^6.0.3"
   }

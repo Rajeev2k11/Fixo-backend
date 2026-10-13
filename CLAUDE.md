@@ -9,7 +9,7 @@ After each step, explain briefly WHY you made the key design choices, not just w
 
 ## Stack (do not change without asking)
 
-- Monorepo: pnpm workspaces + Turborepo. Node 20+. TypeScript `strict: true` everywhere.
+- Monorepo: pnpm workspaces + Turborepo. Node 22.12+ (see docs/decisions.md, 2026-10-13). TypeScript `strict: true` everywhere.
 - API: NestJS in `apps/api` (modular monolith). Background worker: `apps/jobs` (same code, separate entry point).
 - DB: PostgreSQL 16 + PostGIS. ORM: Drizzle (SQL-first). Migrations are committed, never edited after merge.
 - Redis 7 + BullMQ for queues, delayed jobs and locks. Socket.IO with Redis adapter for realtime (later phase).
@@ -66,11 +66,15 @@ Record every decision I make in `docs/decisions.md` (date, decision, reason).
 - `docker compose up -d` — start Postgres + Redis
 - `pnpm install`
 - `pnpm dev` — run API and jobs in watch mode
-- `pnpm test` / `pnpm test:integration`
+- `pnpm test` — unit + e2e, no Docker needed (DB points at a closed port)
+- `pnpm test:integration` — needs `docker compose up -d --wait`; each run uses a throwaway database
 - `pnpm lint` / `pnpm typecheck`
 - `pnpm build` — compile all packages (Turborepo, cached)
 - `pnpm format` / `pnpm format:check` — Prettier
-- `pnpm db:generate` / `pnpm db:migrate` (added in Phase 1 step 1.3)
+- `pnpm db:generate` — create a migration from `src/modules/**/*.schema.ts` changes
+- `pnpm db:migrate` — apply migrations to the database in `.env`
+
+Setup: `cp .env.example .env` (local defaults only; `.env` is gitignored).
 
 Toolchain notes: all packages are ESM (`"type": "module"`, NestJS 12 is ESM-only), so relative
 imports use `.js` extensions. TypeScript is pinned to 6.x because typescript-eslint does not yet
