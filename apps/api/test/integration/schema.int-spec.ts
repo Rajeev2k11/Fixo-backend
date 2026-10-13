@@ -26,6 +26,7 @@ const NO_CITY_ID = [
   'outbox_event',
   'processed_event',
   'idempotency_key',
+  'audit_log',
 ];
 
 describe('schema conventions (CLAUDE.md rule 9)', () => {
