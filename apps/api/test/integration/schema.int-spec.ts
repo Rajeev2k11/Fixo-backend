@@ -25,6 +25,7 @@ const NO_CITY_ID = [
   // platform infrastructure (events may span cities; the payload carries city_id when relevant)
   'outbox_event',
   'processed_event',
+  'idempotency_key',
 ];
 
 describe('schema conventions (CLAUDE.md rule 9)', () => {
