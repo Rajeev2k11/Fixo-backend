@@ -34,7 +34,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // genReqId (logger.ts) always produces a string UUID.
     const requestId = typeof req.id === 'string' ? req.id : '';
     const body: ErrorBody = { error: { code, message, details, requestId } };
-    http.getResponse<Response>().status(status).json(body);
+    const res = http.getResponse<Response>();
+    // 429s carry the standard Retry-After header as well as the value in details.
+    const retryAfter = (details as { retryAfterSeconds?: unknown } | null)?.retryAfterSeconds;
+    if (status === 429 && typeof retryAfter === 'number') res.setHeader('Retry-After', retryAfter);
+    res.status(status).json(body);
   }
 }
 

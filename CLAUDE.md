@@ -76,6 +76,9 @@ Record every decision I make in `docs/decisions.md` (date, decision, reason).
 
 Setup: `cp .env.example .env` (local defaults only; `.env` is gitignored).
 
+Dev login: `POST /v1/auth/otp/request` then read the code from the jobs process output
+(`FakeSms ... OTP for +91XXXXXX1234: 123456`), then `POST /v1/auth/otp/verify`.
+
 Toolchain notes: all packages are ESM (`"type": "module"`, NestJS 12 is ESM-only), so relative
 imports use `.js` extensions. TypeScript is pinned to 6.x because typescript-eslint does not yet
 support TS 7.

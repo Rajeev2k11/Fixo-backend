@@ -3,7 +3,7 @@ import { Writable } from 'node:stream';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
-import { REDACT_PATHS } from './logger.js';
+import { maskPhone, REDACT_PATHS } from './logger.js';
 
 function capture(): { logger: pino.Logger; output: () => string } {
   let buffer = '';
@@ -32,5 +32,11 @@ describe('log redaction', () => {
       expect(line).not.toContain(secret);
     }
     expect(line).toContain('[REDACTED]');
+  });
+});
+
+describe('maskPhone', () => {
+  it('keeps only the country code and last four digits', () => {
+    expect(maskPhone('+919876543210')).toBe('+91XXXXXX3210');
   });
 });

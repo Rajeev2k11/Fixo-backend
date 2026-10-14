@@ -4,19 +4,21 @@ import { fileURLToPath } from 'node:url';
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { Redis } from 'ioredis';
 import { Client, Pool } from 'pg';
 
 const dotEnv = fileURLToPath(new URL('../../../../.env', import.meta.url));
 const migrationsFolder = fileURLToPath(new URL('../../db/migrations', import.meta.url));
 
 /**
- * Creates a throwaway database on the compose Postgres, migrates it, and points
- * DATABASE_URL at it for the test workers. Dropped afterwards, so dev data is never touched.
+ * Gives the run its own throwaway database (on the compose Postgres) and its own Redis key prefix,
+ * so a running dev server and its workers never see test data. Both are removed afterwards.
  */
 export default async function setup(): Promise<() => Promise<void>> {
   if (existsSync(dotEnv)) process.loadEnvFile(dotEnv);
   const baseUrl = process.env.DATABASE_URL;
-  if (!baseUrl) throw new Error('DATABASE_URL is not set (copy .env.example to .env)');
+  const redisUrl = process.env.REDIS_URL;
+  if (!baseUrl || !redisUrl) throw new Error('DATABASE_URL/REDIS_URL not set (copy .env.example)');
 
   const name = `fixo_test_${randomBytes(4).toString('hex')}`;
   const admin = new Client({ connectionString: baseUrl });
@@ -26,6 +28,7 @@ export default async function setup(): Promise<() => Promise<void>> {
   const testUrl = new URL(baseUrl);
   testUrl.pathname = `/${name}`;
   process.env.DATABASE_URL = testUrl.toString();
+  process.env.REDIS_KEY_PREFIX = name;
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   await migrate(drizzle({ client: pool }), { migrationsFolder });
@@ -34,5 +37,9 @@ export default async function setup(): Promise<() => Promise<void>> {
   return async () => {
     await admin.query(`DROP DATABASE "${name}" WITH (FORCE)`);
     await admin.end();
+    const redis = new Redis(redisUrl);
+    const keys = await redis.keys(`${name}:*`); // test-only Redis, so KEYS is fine here
+    if (keys.length > 0) await redis.del(...keys);
+    await redis.quit();
   };
 }

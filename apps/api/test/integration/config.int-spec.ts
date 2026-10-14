@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -20,7 +20,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle({ client: pool, casing: 'snake_case' });
 const config = new ConfigService(db, new ConfigRepository());
 afterAll(() => pool.end());
-beforeEach(() => db.delete(configRule));
+// Only this file's keys: seeded launch config (e.g. auth.otp.*) must survive for other tests.
+beforeEach(() => db.delete(configRule).where(like(configRule.key, 'test.%')));
 
 const LUCKNOW = 'd4046302-ed40-4bd0-84a7-7a9c98614777'; // seeded in migration 0001
 const RADIUS = defineConfigKey('test.radius_km', z.number().positive());

@@ -117,6 +117,16 @@ Format: date · decision · reason · spec impact.
   `marketplace_setting` and `ranking_weight` with keys in one table. Versioning, scope,
   effective_from/to and created_by from §K are kept.
 
+## 2026-10-14 — Auth
+
+### OTP-1 — Starting values for OTP security (seeded as config, tunable by admins)
+- **Decision:** 6-digit code; expires in 5 minutes; 5 wrong attempts, then a new OTP is needed.
+  Requests per phone: 3 per 10 minutes (spec §L). Per IP: 30 per 10 minutes. Per device:
+  5 per 10 minutes. Resend cooldown 30 seconds, doubling with each resend in the window.
+- **Reason:** Spec §L gives only the per-phone limit. The per-IP limit is generous because Indian
+  mobile carriers put many users behind one shared IP (CGNAT).
+- **Spec impact:** Fills values §L and §M leave open. Stored as `auth.otp.*` config keys.
+
 ---
 
 ## Deferred (to be decided before the phase noted)

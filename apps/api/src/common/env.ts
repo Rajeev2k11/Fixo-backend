@@ -3,13 +3,32 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  DATABASE_URL: z.url(),
-  REDIS_URL: z.url(),
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-});
+const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+    DATABASE_URL: z.url(),
+    REDIS_URL: z.url(),
+    // Namespaces every Redis key and queue, so tests and environments sharing a Redis never collide.
+    REDIS_KEY_PREFIX: z
+      .string()
+      .regex(/^[a-z0-9_]+$/)
+      .default('fixo'),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
+    // Keys the HMACs of OTP codes and phone numbers. Generate with `openssl rand -hex 32`.
+    OTP_HMAC_SECRET: z.string().min(32),
+    // Real providers (MSG91) are added when chosen; until then only the console fake exists.
+    SMS_PROVIDER: z.enum(['fake']).default('fake'),
+  })
+  // 'fake' is the only provider today, so lint calls the second check redundant. It is the guard
+  // that keeps production from booting with the fake once a real provider is added.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  .refine((e) => !(e.NODE_ENV === 'production' && e.SMS_PROVIDER === 'fake'), {
+    path: ['SMS_PROVIDER'],
+    message: 'the fake SMS provider prints OTPs to the log and must never run in production',
+  });
 
 export type Env = z.infer<typeof envSchema>;
 

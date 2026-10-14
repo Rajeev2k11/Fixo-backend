@@ -37,3 +37,8 @@ export function loggerParams(env: Env): Params {
     },
   };
 }
+
+/** For the rare log line that must identify a phone: "+91XXXXXX3210". */
+export function maskPhone(phone: string): string {
+  return `${phone.slice(0, 3)}XXXXXX${phone.slice(-4)}`;
+}

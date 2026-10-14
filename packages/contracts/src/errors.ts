@@ -22,6 +22,8 @@ export const ErrorCode = {
   MAKER_CANNOT_APPROVE: 'MAKER_CANNOT_APPROVE',
   INVALID_TRANSITION: 'INVALID_TRANSITION',
   CONCURRENT_UPDATE: 'CONCURRENT_UPDATE',
+  RATE_LIMITED: 'RATE_LIMITED',
+  OTP_INVALID: 'OTP_INVALID',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

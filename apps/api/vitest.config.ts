@@ -13,6 +13,7 @@ export default defineConfig({
       // query fails fast. Real-database tests live in test/integration.
       DATABASE_URL: 'postgres://unit:unit@127.0.0.1:1/unit',
       REDIS_URL: 'redis://127.0.0.1:1',
+      OTP_HMAC_SECRET: 'unit-test-secret-unit-test-secret-0000',
     },
   },
 });

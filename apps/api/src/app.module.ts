@@ -5,6 +5,8 @@ import { LoggerModule } from 'nestjs-pino';
 import { DbModule } from './common/db.js';
 import { env } from './common/env.js';
 import { loggerParams } from './common/logger.js';
+import { RedisModule } from './common/redis.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { ConfigModule } from './modules/config/config.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { UsersModule } from './modules/users/users.module.js';
@@ -14,8 +16,10 @@ import { IdempotencyInterceptor } from './platform/idempotency/idempotency.inter
   imports: [
     LoggerModule.forRoot(loggerParams(env)),
     DbModule,
+    RedisModule,
     ConfigModule,
     UsersModule,
+    AuthModule,
     HealthModule,
   ],
   // Global, but a no-op unless a route is marked @Idempotent().

@@ -78,6 +78,20 @@
       "when": 1791912645456,
       "tag": "0010_actor_foreign_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791991854960,
+      "tag": "0011_otp_challenge",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791991855568,
+      "tag": "0012_seed_otp_config",
+      "breakpoints": true
     }
   ]
 }
