@@ -76,6 +76,9 @@ Record every decision I make in `docs/decisions.md` (date, decision, reason).
 
 Setup: `cp .env.example .env` (local defaults only; `.env` is gitignored).
 
+API docs (dev only): http://localhost:3000/v1/docs (Swagger UI), `/v1/docs/openapi.json` (spec).
+New routes must be added to `src/modules/docs/openapi.ts`; `test/docs.e2e-spec.ts` fails otherwise.
+
 Dev login: `POST /v1/auth/otp/request` then read the code from the jobs process output
 (`FakeSms ... OTP for +91XXXXXX1234: 123456`), then `POST /v1/auth/otp/verify`.
 
