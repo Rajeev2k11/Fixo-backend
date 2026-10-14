@@ -1,6 +1,7 @@
 import { ErrorCode } from '@fixo/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 
+import type { Actor } from '../../common/actor.js';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Db, type Tx } from '../../common/db.js';
 import { recordAudit } from '../../platform/audit/audit.js';
@@ -9,11 +10,6 @@ import { configKey, type ConfigKey } from './config.keys.js';
 import { ConfigRepository } from './config.repository.js';
 import type { ConfigRuleRow } from './config.schema.js';
 import { isValidRuleScope, mostSpecific, type Scope } from './domain/config.rules.js';
-
-export interface Actor {
-  userId: string;
-  role: string;
-}
 
 export interface Resolved<T> {
   value: T;

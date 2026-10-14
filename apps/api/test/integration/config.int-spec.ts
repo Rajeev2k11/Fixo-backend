@@ -10,9 +10,11 @@ import { AppError } from '../../src/common/app-error.js';
 import { defineConfigKey } from '../../src/modules/config/config.keys.js';
 import { ConfigRepository } from '../../src/modules/config/config.repository.js';
 import { configRule } from '../../src/modules/config/config.schema.js';
-import { type Actor, ConfigService } from '../../src/modules/config/config.service.js';
+import type { Actor } from '../../src/common/actor.js';
+import { ConfigService } from '../../src/modules/config/config.service.js';
 import { auditLog } from '../../src/platform/audit/audit.schema.js';
 import { outboxEvent } from '../../src/platform/outbox/outbox.schema.js';
+import { createUser } from './helpers.js';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle({ client: pool, casing: 'snake_case' });
@@ -26,9 +28,9 @@ const LEAD_FEE = defineConfigKey('test.revenue.lead_fee_paise', z.int().min(0), 
   requiresApproval: true,
 });
 
-const ops: Actor = { userId: randomUUID(), role: 'operations' };
-const superAdmin: Actor = { userId: randomUUID(), role: 'super_admin' };
-const finance: Actor = { userId: randomUUID(), role: 'finance' };
+const ops: Actor = { userId: await createUser(pool), role: 'operations' };
+const superAdmin: Actor = { userId: await createUser(pool), role: 'super_admin' };
+const finance: Actor = { userId: await createUser(pool), role: 'finance' };
 const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000);
 
 function set(value: unknown, scope = {}, effectiveFrom?: Date) {

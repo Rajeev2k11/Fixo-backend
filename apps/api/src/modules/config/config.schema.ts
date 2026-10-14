@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 import { city } from '../geo/geo.schema.js';
+import { user } from '../users/users.schema.js';
 
 /**
  * Every configurable business value (CLAUDE.md rule 7, decision SPEC-4): one row per version
@@ -25,8 +26,10 @@ export const configRule = pgTable(
     effectiveFrom: timestamp({ withTimezone: true }).notNull(),
     effectiveTo: timestamp({ withTimezone: true }),
     reason: text().notNull(),
-    createdBy: uuid().notNull(),
-    approvedBy: uuid(),
+    createdBy: uuid()
+      .notNull()
+      .references(() => user.id),
+    approvedBy: uuid().references(() => user.id),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     decidedAt: timestamp({ withTimezone: true }),
   },

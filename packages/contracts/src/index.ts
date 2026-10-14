@@ -2,3 +2,4 @@
 // used by the API and the mobile apps.
 export * from './errors.js';
 export * from './events.js';
+export * from './phone.js';

@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { check, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
+import { user } from '../../modules/users/users.schema.js';
+
 /**
  * Append-only record of admin actions on money, rules, KYC or account status (spec §T, §Y).
  * A trigger (migration 0005) rejects UPDATE, DELETE and TRUNCATE. Platform table, so no city_id.
@@ -9,7 +11,9 @@ export const auditLog = pgTable(
   'audit_log',
   {
     id: uuid().primaryKey().defaultRandom(),
-    actorUserId: uuid().notNull(), // FK to user added when the user table exists (step 1.8)
+    actorUserId: uuid()
+      .notNull()
+      .references(() => user.id),
     actorRole: text().notNull(), // e.g. 'super_admin', 'finance'
     action: text().notNull(), // e.g. 'config.rule.approved'
     entityType: text().notNull(),

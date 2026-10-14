@@ -7,15 +7,17 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { type AuditEntry, recordAudit } from '../../src/platform/audit/audit.js';
 import { auditLog } from '../../src/platform/audit/audit.schema.js';
+import { createUser } from './helpers.js';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle({ client: pool, casing: 'snake_case' });
 afterAll(() => pool.end());
+const actorUserId = await createUser(pool);
 
 // audit_log cannot be truncated, so every test uses its own entity id instead of a clean table.
 function entry(entityId = randomUUID()): AuditEntry {
   return {
-    actorUserId: randomUUID(),
+    actorUserId,
     actorRole: 'super_admin',
     action: 'config.rule.changed',
     entityType: 'marketplace_setting',

@@ -20,6 +20,8 @@ export const ErrorCode = {
   CONFIG_OVERLAP: 'CONFIG_OVERLAP',
   CONFIG_NOT_PENDING: 'CONFIG_NOT_PENDING',
   MAKER_CANNOT_APPROVE: 'MAKER_CANNOT_APPROVE',
+  INVALID_TRANSITION: 'INVALID_TRANSITION',
+  CONCURRENT_UPDATE: 'CONCURRENT_UPDATE',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

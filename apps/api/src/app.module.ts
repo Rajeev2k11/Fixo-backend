@@ -7,10 +7,17 @@ import { env } from './common/env.js';
 import { loggerParams } from './common/logger.js';
 import { ConfigModule } from './modules/config/config.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 import { IdempotencyInterceptor } from './platform/idempotency/idempotency.interceptor.js';
 
 @Module({
-  imports: [LoggerModule.forRoot(loggerParams(env)), DbModule, ConfigModule, HealthModule],
+  imports: [
+    LoggerModule.forRoot(loggerParams(env)),
+    DbModule,
+    ConfigModule,
+    UsersModule,
+    HealthModule,
+  ],
   // Global, but a no-op unless a route is marked @Idempotent().
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],
 })

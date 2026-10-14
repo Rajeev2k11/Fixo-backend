@@ -27,6 +27,14 @@ const NO_CITY_ID = [
   'processed_event',
   'idempotency_key',
   'audit_log',
+  // identity and access control: not city-scoped (a user's home city is user.city_id)
+  'auth_identity',
+  'customer_profile',
+  'worker_profile',
+  'admin_profile',
+  'admin_role',
+  'user_admin_role',
+  'user_status_history',
 ];
 
 describe('schema conventions (CLAUDE.md rule 9)', () => {

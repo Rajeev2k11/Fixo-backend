@@ -57,6 +57,27 @@
       "when": 1791912003639,
       "tag": "0007_config_rule_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791912605467,
+      "tag": "0008_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791912606083,
+      "tag": "0009_seed_admin_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791912645456,
+      "tag": "0010_actor_foreign_keys",
+      "breakpoints": true
     }
   ]
 }
