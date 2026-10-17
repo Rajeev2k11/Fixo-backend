@@ -12,7 +12,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
 import { Idempotent } from '../../src/platform/idempotency/idempotency.interceptor.js';
-import { Public } from '../../src/modules/auth/auth.guard.js';
+import { CurrentAuth, Public } from '../../src/modules/auth/auth.guard.js';
+import { SessionsService, type AuthContext } from '../../src/modules/auth/sessions.service.js';
+import { UsersService } from '../../src/modules/users/users.service.js';
+import { newPhone } from './helpers.js';
 
 let runs = 0;
 let failNext = false;
@@ -47,6 +50,17 @@ class TestController {
   }
 }
 
+// A protected route (no @Public): keys must be scoped to the caller.
+@Controller('test-idem-auth')
+class ProtectedController {
+  @Post('orders')
+  @Idempotent()
+  create(@CurrentAuth() auth: AuthContext) {
+    runs++;
+    return { orderId: randomUUID(), owner: auth.userId };
+  }
+}
+
 describe('Idempotency-Key handling', () => {
   let app: INestApplication;
   let server: Server;
@@ -55,7 +69,7 @@ describe('Idempotency-Key handling', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-      controllers: [TestController],
+      controllers: [TestController, ProtectedController],
     }).compile();
     app = moduleRef.createNestApplication();
     configureApp(app);
@@ -177,5 +191,33 @@ describe('Idempotency-Key handling', () => {
     expect(again.status).toBe(201);
     expect(again.headers['idempotent-replayed']).toBeUndefined();
     expect(runs).toBe(2);
+  });
+
+  it('scopes keys per user: the same key from two users runs twice, each sees their own result', async () => {
+    const tokenFor = async () => {
+      const { userId } = await app.get(UsersService).findOrCreateByPhone(newPhone(), 'customer');
+      const { accessToken } = await app
+        .get(SessionsService)
+        .start(userId, 'customer', randomUUID());
+      return { userId, accessToken };
+    };
+    const [alice, bob] = [await tokenFor(), await tokenFor()];
+    const key = randomUUID();
+    const send = (who: { accessToken: string }) =>
+      request(server)
+        .post('/v1/test-idem-auth/orders')
+        .set('Authorization', `Bearer ${who.accessToken}`)
+        .set('Idempotency-Key', key)
+        .send({});
+
+    const a = await send(alice);
+    const b = await send(bob);
+    const aRetry = await send(alice);
+
+    expect(runs).toBe(2);
+    expect(a.body).toMatchObject({ owner: alice.userId });
+    expect(b.body).toMatchObject({ owner: bob.userId });
+    expect(aRetry.body).toEqual(a.body);
+    expect(aRetry.headers['idempotent-replayed']).toBe('true');
   });
 });

@@ -21,7 +21,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./openapi.json": "./openapi.json"
   },
   "dependencies": {
     "zod": "^4.6.7"

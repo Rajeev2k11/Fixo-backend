@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { Server } from 'node:http';
 
 import { INestApplication, RequestMethod } from '@nestjs/common';
@@ -9,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
+import { OPENAPI_FILE } from '../src/cli/export-openapi.js';
 import { buildOpenApiDocument } from '../src/modules/docs/openapi.js';
 
 const join = (...parts: string[]) =>
@@ -70,6 +73,12 @@ describe('API docs', () => {
     expect(documentedRoutes().toSorted()).toEqual(served.toSorted());
   });
 
+  it('keeps the committed openapi.json in step with the code (run `pnpm openapi`)', () => {
+    const committed = JSON.parse(readFileSync(OPENAPI_FILE, 'utf8')) as unknown;
+
+    expect(committed).toEqual(buildOpenApiDocument());
+  });
+
   it('serves the OpenAPI document', async () => {
     const res = await request(server).get('/v1/docs/openapi.json');
 
@@ -83,5 +92,61 @@ describe('API docs', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/html/);
     expect(res.text).toContain('/v1/docs/openapi.json');
+  });
+});
+
+/**
+ * Authorization review as a test: every route refuses a request without a token, except this
+ * list. Adding a public route means adding it here, on purpose, in a reviewed diff.
+ */
+const PUBLIC_ROUTES = [
+  'get /health',
+  'get /docs',
+  'get /docs/openapi.json',
+  'post /auth/otp/request',
+  'post /auth/otp/verify',
+  'post /auth/refresh',
+  'post /auth/logout',
+  'post /admin/auth/login',
+  'post /admin/auth/mfa',
+  'post /admin/auth/refresh', // authenticated by its httpOnly cookie + CSRF header instead
+  'post /admin/auth/logout',
+];
+
+describe('authorization surface', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule, DiscoveryModule],
+    }).compile();
+    app = moduleRef.createNestApplication();
+    configureApp(app);
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('every route outside the public list answers 401 without a token', async () => {
+    const server = app.getHttpServer() as Server;
+    const results: string[] = [];
+    for (const route of registeredRoutes(app)) {
+      const [method = '', path = ''] = route.split(' ');
+      const url = `/v1${path.replace(/\{\w+\}/g, randomUUID())}`;
+      const res = await request(server)[method as 'get' | 'post' | 'put'](url).send({});
+      const isPublic = PUBLIC_ROUTES.includes(route);
+      const ok = isPublic ? res.status !== 401 : res.status === 401;
+      if (!ok)
+        results.push(`${route} -> ${String(res.status)} (${isPublic ? 'public' : 'protected'})`);
+    }
+
+    expect(results).toEqual([]);
+  });
+
+  it('the public list names only routes that exist', () => {
+    const served = registeredRoutes(app);
+    expect(PUBLIC_ROUTES.filter((r) => !served.includes(r))).toEqual([]);
   });
 });

@@ -73,6 +73,7 @@ Record every decision I make in `docs/decisions.md` (date, decision, reason).
 - `pnpm format` / `pnpm format:check` — Prettier
 - `pnpm db:generate` — create a migration from `src/modules/**/*.schema.ts` changes
 - `pnpm db:migrate` — apply migrations to the database in `.env`
+- `pnpm openapi` — regenerate `packages/contracts/openapi.json` (a test fails if it is stale)
 - `pnpm admin:create --email <e> --name "<n>" --role super_admin` — create an admin; prints a
   one-time password. Login: `POST /v1/admin/auth/login`, then enrol MFA (authenticator app).
 

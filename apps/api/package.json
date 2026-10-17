@@ -20,7 +20,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "admin:create": "node --import @swc-node/register/esm-register src/cli/create-admin.ts"
+    "admin:create": "node --import @swc-node/register/esm-register src/cli/create-admin.ts",
+    "openapi": "node --import @swc-node/register/esm-register src/cli/export-openapi.ts"
   },
   "dependencies": {
     "@fixo/contracts": "workspace:*",

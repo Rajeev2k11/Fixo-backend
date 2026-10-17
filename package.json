@@ -17,7 +17,8 @@
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @fixo/api db:generate",
     "db:migrate": "pnpm --filter @fixo/api db:migrate",
-    "admin:create": "pnpm --filter @fixo/api admin:create"
+    "admin:create": "pnpm --filter @fixo/api admin:create",
+    "openapi": "pnpm --filter @fixo/api openapi"
   },
   "prettier": "@fixo/config/prettier.json",
   "pnpm": {

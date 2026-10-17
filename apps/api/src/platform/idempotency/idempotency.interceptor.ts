@@ -55,10 +55,11 @@ export class IdempotencyInterceptor implements NestInterceptor {
       );
     }
 
-    // ponytail: scope has no user yet; it gains the authenticated user id in step 1.10.
     // Route pattern (/bookings/:id), typed `any` by Express; falls back to the concrete path.
     const route = req.route as { path?: string } | undefined;
-    const scope = `anonymous ${req.method} ${route?.path ?? req.path}`;
+    // Keys are per user: the guard (which runs before interceptors) has set req.auth, so two
+    // users sending the same key never see each other's response. Public routes share 'anonymous'.
+    const scope = `${req.auth?.userId ?? 'anonymous'} ${req.method} ${route?.path ?? req.path}`;
     const requestHash = createHash('sha256')
       .update(`${req.method} ${req.originalUrl} ${JSON.stringify(req.body ?? null)}`)
       .digest('hex');
