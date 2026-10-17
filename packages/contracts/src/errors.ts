@@ -7,6 +7,7 @@ import { z } from 'zod';
 export const ErrorCode = {
   VALIDATION_FAILED: 'VALIDATION_FAILED',
   BAD_REQUEST: 'BAD_REQUEST',
+  /** Missing, invalid or expired access token: refresh it (or log in). */
   UNAUTHENTICATED: 'UNAUTHENTICATED',
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
@@ -24,6 +25,13 @@ export const ErrorCode = {
   CONCURRENT_UPDATE: 'CONCURRENT_UPDATE',
   RATE_LIMITED: 'RATE_LIMITED',
   OTP_INVALID: 'OTP_INVALID',
+  /** Refresh was refused (expired, revoked, reused or wrong device): log in again with OTP. */
+  SESSION_EXPIRED: 'SESSION_EXPIRED',
+  /** The account is suspended or blocked. */
+  ACCOUNT_RESTRICTED: 'ACCOUNT_RESTRICTED',
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  MFA_INVALID: 'MFA_INVALID',
+  CSRF_FAILED: 'CSRF_FAILED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

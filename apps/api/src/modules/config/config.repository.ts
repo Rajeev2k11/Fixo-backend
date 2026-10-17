@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, gt, isNull, lte, max, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, lte, max, or, sql, type SQL } from 'drizzle-orm';
 
 import type { Db, Tx } from '../../common/db.js';
 import { configRule, type ConfigRuleRow } from './config.schema.js';
@@ -101,5 +101,22 @@ export class ConfigRepository {
       .returning();
     if (!row) throw new Error(`config_rule ${id} vanished while locked`);
     return row;
+  }
+
+  list(
+    db: Executor,
+    filter: { key?: string | undefined; status?: ConfigRuleRow['status'] | undefined },
+  ): Promise<ConfigRuleRow[]> {
+    return db
+      .select()
+      .from(configRule)
+      .where(
+        and(
+          filter.key ? eq(configRule.key, filter.key) : undefined,
+          filter.status ? eq(configRule.status, filter.status) : undefined,
+        ),
+      )
+      .orderBy(desc(configRule.createdAt))
+      .limit(200); // ponytail: fixed page; cursor pagination (spec §L) when the admin UI needs it
   }
 }

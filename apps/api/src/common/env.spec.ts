@@ -6,6 +6,8 @@ const required = {
   DATABASE_URL: 'postgres://u:p@localhost:5432/db',
   REDIS_URL: 'redis://localhost:6379',
   OTP_HMAC_SECRET: 'x'.repeat(32),
+  JWT_SECRET: 'y'.repeat(32),
+  MFA_ENCRYPTION_KEY: 'f'.repeat(64),
 };
 
 describe('loadEnv', () => {
@@ -21,7 +23,9 @@ describe('loadEnv', () => {
   });
 
   it('requires the secrets (no defaults for them)', () => {
-    expect(() => loadEnv({})).toThrow(/DATABASE_URL[\s\S]*REDIS_URL[\s\S]*OTP_HMAC_SECRET/);
+    expect(() => loadEnv({})).toThrow(
+      /DATABASE_URL[\s\S]*REDIS_URL[\s\S]*OTP_HMAC_SECRET[\s\S]*JWT_SECRET[\s\S]*MFA_ENCRYPTION_KEY/,
+    );
   });
 
   it('rejects a short OTP secret', () => {

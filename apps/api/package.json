@@ -19,7 +19,8 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "admin:create": "node --import @swc-node/register/esm-register src/cli/create-admin.ts"
   },
   "dependencies": {
     "@fixo/contracts": "workspace:*",
@@ -29,6 +30,7 @@
     "bullmq": "^6.3.14",
     "drizzle-orm": "^0.45.4",
     "ioredis": "^6.0.0",
+    "jose": "^6.2.12",
     "nestjs-pino": "^5.3.1",
     "pg": "^8.23.1",
     "pino": "^10.4.0",

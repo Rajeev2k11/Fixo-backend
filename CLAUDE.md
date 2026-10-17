@@ -73,6 +73,8 @@ Record every decision I make in `docs/decisions.md` (date, decision, reason).
 - `pnpm format` / `pnpm format:check` — Prettier
 - `pnpm db:generate` — create a migration from `src/modules/**/*.schema.ts` changes
 - `pnpm db:migrate` — apply migrations to the database in `.env`
+- `pnpm admin:create --email <e> --name "<n>" --role super_admin` — create an admin; prints a
+  one-time password. Login: `POST /v1/admin/auth/login`, then enrol MFA (authenticator app).
 
 Setup: `cp .env.example .env` (local defaults only; `.env` is gitignored).
 
@@ -85,5 +87,7 @@ Dev login: `POST /v1/auth/otp/request` then read the code from the jobs process 
 Toolchain notes: all packages are ESM (`"type": "module"`, NestJS 12 is ESM-only), so relative
 imports use `.js` extensions. TypeScript is pinned to 6.x because typescript-eslint does not yet
 support TS 7.
+Rule 1 is enforced by the `fixo/module-boundaries` lint rule (`packages/config/eslint-rules/`):
+other modules may import only `*.module|service|schema|keys|guard.js` files of a module.
 
 (Update this section as scripts are added.)

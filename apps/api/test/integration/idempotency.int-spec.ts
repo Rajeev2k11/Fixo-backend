@@ -12,11 +12,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
 import { Idempotent } from '../../src/platform/idempotency/idempotency.interceptor.js';
+import { Public } from '../../src/modules/auth/auth.guard.js';
 
 let runs = 0;
 let failNext = false;
 
 // Test-only routes standing in for create-booking and friends.
+@Public()
 @Controller('test-idem')
 class TestController {
   @Post('orders')

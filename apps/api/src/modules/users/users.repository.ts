@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { Db, Tx } from '../../common/db.js';
 import type { UserStatus } from './domain/user.state-machine.js';
 import {
   adminProfile,
+  adminRole,
   authIdentity,
   customerProfile,
   user,
+  userAdminRole,
   userStatusHistory,
   type UserRow,
   workerProfile,
@@ -29,7 +31,7 @@ export class UsersRepository {
   }
 
   async findUserIdByIdentity(
-    tx: Tx,
+    tx: Db | Tx,
     type: IdentityType,
     value: string,
   ): Promise<string | undefined> {
@@ -69,6 +71,11 @@ export class UsersRepository {
     return (['customer', 'worker', 'admin'] as const).filter((role) => row?.[role]);
   }
 
+  async findById(db: Db | Tx, id: string): Promise<UserRow | undefined> {
+    const [row] = await db.select().from(user).where(eq(user.id, id));
+    return row;
+  }
+
   async lockUser(tx: Tx, id: string): Promise<UserRow | undefined> {
     const [row] = await tx.select().from(user).where(eq(user.id, id)).for('update');
     return row;
@@ -91,5 +98,31 @@ export class UsersRepository {
 
   async insertHistory(tx: Tx, entry: typeof userStatusHistory.$inferInsert): Promise<void> {
     await tx.insert(userStatusHistory).values(entry);
+  }
+
+  async createAdminProfile(tx: Tx, userId: string, displayName: string): Promise<void> {
+    await tx.insert(adminProfile).values({ userId, displayName });
+  }
+
+  /** Grants admin roles by code; throws if a code does not exist. */
+  async grantAdminRoles(tx: Tx, userId: string, codes: string[]): Promise<void> {
+    const roles = await tx.select().from(adminRole).where(inArray(adminRole.code, codes));
+    const missing = codes.filter((c) => !roles.some((r) => r.code === c));
+    if (missing.length > 0) throw new Error(`unknown admin role(s): ${missing.join(', ')}`);
+    await tx.insert(userAdminRole).values(roles.map((r) => ({ userId, adminRoleId: r.id })));
+  }
+
+  async replaceAdminRoles(tx: Tx, userId: string, codes: string[]): Promise<void> {
+    await tx.delete(userAdminRole).where(eq(userAdminRole.userId, userId));
+    await this.grantAdminRoles(tx, userId, codes);
+  }
+
+  async adminRoleCodes(db: Db | Tx, userId: string): Promise<string[]> {
+    const rows = await db
+      .select({ code: adminRole.code })
+      .from(userAdminRole)
+      .innerJoin(adminRole, eq(adminRole.id, userAdminRole.adminRoleId))
+      .where(eq(userAdminRole.userId, userId));
+    return rows.map((r) => r.code).toSorted();
   }
 }

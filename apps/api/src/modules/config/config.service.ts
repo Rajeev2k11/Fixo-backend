@@ -9,6 +9,7 @@ import { appendOutbox } from '../../platform/outbox/outbox.js';
 import { configKey, type ConfigKey } from './config.keys.js';
 import { ConfigRepository } from './config.repository.js';
 import type { ConfigRuleRow } from './config.schema.js';
+import { configPolicy, holdsAnyRole } from './domain/config.policy.js';
 import { isValidRuleScope, mostSpecific, type Scope } from './domain/config.rules.js';
 
 export interface Resolved<T> {
@@ -19,14 +20,16 @@ export interface Resolved<T> {
 
 export interface ProposeInput {
   key: string;
-  scope?: Scope;
+  scope?: Scope | undefined;
   value: unknown;
   /** Defaults to now; a past date is moved up to the moment of activation (no backdating). */
-  effectiveFrom?: Date;
+  effectiveFrom?: Date | undefined;
   reason: string;
   actor: Actor;
-  requestId?: string;
+  requestId?: string | undefined;
 }
+
+const forbidden = (message: string) => new AppError(ErrorCode.FORBIDDEN, 403, message);
 
 @Injectable()
 export class ConfigService {
@@ -47,12 +50,23 @@ export class ConfigService {
     return { value: key.schema.parse(best.value), versionId: best.id };
   }
 
+  /** Versions for the admin screens, newest first (e.g. status 'pending' for the approval queue). */
+  list(filter: {
+    key?: string | undefined;
+    status?: ConfigRuleRow['status'] | undefined;
+  }): Promise<ConfigRuleRow[]> {
+    return this.repo.list(this.db, filter);
+  }
+
   /**
    * Creates a new version. Keys that need approval (SPEC-2) wait as 'pending' for a second admin;
    * all others take effect at effectiveFrom straight away.
    */
   async propose(input: ProposeInput): Promise<ConfigRuleRow> {
     const key = configKey(input.key);
+    if (!holdsAnyRole(input.actor.role, configPolicy(key.name).propose)) {
+      throw forbidden(`Your role cannot change ${key.name}`);
+    }
     const scope = input.scope ?? {};
     if (!isValidRuleScope(scope)) {
       throw new AppError(
@@ -112,6 +126,9 @@ export class ConfigService {
             'A rule change must be approved by a different admin',
           );
         }
+        if (!holdsAnyRole(approver.role, configPolicy(row.key).approve)) {
+          throw forbidden(`Your role cannot approve ${row.key}`);
+        }
         await this.repo.lockKey(tx, row.key);
         return this.activate(tx, row, approver.userId, approver, { reason, requestId });
       }),
@@ -126,6 +143,13 @@ export class ConfigService {
   ): Promise<ConfigRuleRow> {
     return this.db.transaction(async (tx) => {
       const row = await this.pending(tx, id);
+      // The maker may withdraw their own proposal; otherwise only an approver may reject it.
+      if (
+        row.createdBy !== actor.userId &&
+        !holdsAnyRole(actor.role, configPolicy(row.key).approve)
+      ) {
+        throw forbidden(`Your role cannot reject ${row.key}`);
+      }
       const rejected = await this.repo.decide(tx, id, { status: 'rejected' });
       await this.audit(tx, actor, 'config.rule.rejected', rejected, row, { reason, requestId });
       return rejected;

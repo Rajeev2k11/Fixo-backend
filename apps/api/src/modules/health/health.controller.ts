@@ -6,8 +6,10 @@ import type { Redis } from 'ioredis';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Db } from '../../common/db.js';
 import { REDIS } from '../../common/redis.js';
+import { Public } from '../auth/auth.guard.js';
 
 /** Liveness plus reachability of the database and Redis. */
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(

@@ -14,6 +14,8 @@ export default defineConfig({
       DATABASE_URL: 'postgres://unit:unit@127.0.0.1:1/unit',
       REDIS_URL: 'redis://127.0.0.1:1',
       OTP_HMAC_SECRET: 'unit-test-secret-unit-test-secret-0000',
+      JWT_SECRET: 'unit-test-jwt-secret-unit-test-jwt-0000',
+      MFA_ENCRYPTION_KEY: 'a'.repeat(64),
     },
   },
 });

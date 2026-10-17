@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { Server } from 'node:http';
 
 import { errorBodySchema } from '@fixo/contracts';
@@ -15,7 +15,7 @@ import { queuePrefix, redisOptions } from '../../src/common/redis.js';
 import { ConfigService } from '../../src/modules/config/config.service.js';
 import { UsersService } from '../../src/modules/users/users.service.js';
 import { type OtpSmsJob, SMS_QUEUE_NAME } from '../../src/platform/sms/sms.js';
-import { createUser } from './helpers.js';
+import { createUser, newPhone, resetSharedState, sentCode as sentCodeFrom } from './helpers.js';
 
 let app: INestApplication;
 let server: Server;
@@ -33,30 +33,24 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await resetSharedState(pool);
   await smsQueue.close();
   await app.close();
   await pool.end();
 });
 
-const newPhone = () => `9${String(randomInt(0, 1e9)).padStart(9, '0')}`;
-
 const requestOtp = (phone: string, deviceId?: string) => {
   const req = request(server).post('/v1/auth/otp/request');
   return (deviceId ? req.set('X-Device-Id', deviceId) : req).send({ phone });
 };
+// Verify binds the new session to the device, so X-Device-Id is required (step 1.10).
 const verify = (phone: string, code: string, role = 'customer') =>
-  request(server).post('/v1/auth/otp/verify').send({ phone, code, role });
+  request(server)
+    .post('/v1/auth/otp/verify')
+    .set('X-Device-Id', randomUUID())
+    .send({ phone, code, role });
 
-/** The code the SMS worker would send to this phone (latest job). */
-async function sentCode(phone: string): Promise<string> {
-  const jobs = await smsQueue.getJobs(['waiting', 'prioritized', 'delayed']);
-  const mine = jobs
-    .filter((j) => j.data.phone === `+91${phone}`)
-    .toSorted((a, b) => b.timestamp - a.timestamp);
-  const code = mine[0]?.data.code;
-  if (!code) throw new Error(`no SMS queued for ${phone}`);
-  return code;
-}
+const sentCode = (phone: string) => sentCodeFrom(smsQueue, phone);
 
 const errorOf = (body: unknown) => errorBodySchema.parse(body).error;
 
@@ -143,6 +137,19 @@ describe('OTP login with the launch defaults (OTP-1)', () => {
     expect((await requestOtp('12345')).status).toBe(400);
     expect((await requestOtp(newPhone(), 'not-a-uuid')).status).toBe(400);
   });
+
+  it('requires X-Device-Id on verify, since the session is bound to the device', async () => {
+    const phone = newPhone();
+    await requestOtp(phone);
+    const code = await sentCode(phone);
+
+    const res = await request(server)
+      .post('/v1/auth/otp/verify')
+      .send({ phone, code, role: 'customer' });
+
+    expect(res.status).toBe(400);
+    expect(errorOf(res.body).code).toBe('VALIDATION_FAILED');
+  });
 });
 
 describe('OTP limits (cooldown switched off via config)', () => {
@@ -155,6 +162,8 @@ describe('OTP limits (cooldown switched off via config)', () => {
       actor,
     });
   });
+  // Blocks may run in any order (vitest --sequence.shuffle), so put the launch defaults back.
+  afterAll(() => resetSharedState(pool));
 
   it('allows 3 requests per phone per window, then 429', async () => {
     const phone = newPhone();

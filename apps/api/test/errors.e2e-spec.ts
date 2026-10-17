@@ -11,10 +11,12 @@ import { z } from 'zod';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { ZodValidationPipe } from '../src/common/zod-validation.pipe.js';
+import { Public } from '../src/modules/auth/auth.guard.js';
 
 const echoSchema = z.strictObject({ name: z.string().min(1) });
 
 // Test-only routes; registered in the testing module, never in AppModule.
+@Public()
 @Controller('test')
 class TestController {
   @Post('echo')

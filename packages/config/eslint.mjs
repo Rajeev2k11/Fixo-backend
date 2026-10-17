@@ -2,6 +2,8 @@
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
+import { moduleBoundaries } from './eslint-rules/module-boundaries.mjs';
+
 export default tseslint.config(
   { ignores: ['**/dist/**', '**/coverage/**', '**/*.mjs'] },
   ...tseslint.configs.strictTypeChecked,
@@ -15,6 +17,12 @@ export default tseslint.config(
       '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
       '@typescript-eslint/consistent-type-imports': 'off',
     },
+  },
+  {
+    // CLAUDE.md rule 1, enforced (tested in eslint-rules/module-boundaries.test.mjs).
+    files: ['**/src/modules/**/*.ts'],
+    plugins: { fixo: { rules: { 'module-boundaries': moduleBoundaries } } },
+    rules: { 'fixo/module-boundaries': 'error' },
   },
   prettier,
 );

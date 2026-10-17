@@ -1,10 +1,10 @@
 /** Scope columns of a rule; undefined/null means "any". */
 export interface Scope {
-  cityId?: string | null;
-  zoneId?: string | null;
-  categoryId?: string | null;
-  subcategoryId?: string | null;
-  problemId?: string | null;
+  cityId?: string | null | undefined;
+  zoneId?: string | null | undefined;
+  categoryId?: string | null | undefined;
+  subcategoryId?: string | null | undefined;
+  problemId?: string | null | undefined;
 }
 
 const CATALOGUE_LEVEL = (s: Scope): number =>

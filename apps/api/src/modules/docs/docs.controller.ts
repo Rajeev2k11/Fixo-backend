@@ -1,5 +1,6 @@
 import { Controller, Get, Header } from '@nestjs/common';
 
+import { Public } from '../auth/auth.guard.js';
 import { buildOpenApiDocument } from './openapi.js';
 
 // Swagger UI from a CDN: docs are dev-only, so no UI dependency is shipped with the API.
@@ -21,6 +22,7 @@ const SWAGGER_UI_HTML = `<!doctype html>
 </html>`;
 
 /** Interactive API docs. Registered only outside production (see AppModule). */
+@Public()
 @Controller('docs')
 export class DocsController {
   private readonly document = buildOpenApiDocument();

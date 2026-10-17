@@ -36,6 +36,9 @@ const NO_CITY_ID = [
   'user_admin_role',
   'user_status_history',
   'otp_challenge',
+  'session',
+  'refresh_token',
+  'admin_credential',
 ];
 
 describe('schema conventions (CLAUDE.md rule 9)', () => {

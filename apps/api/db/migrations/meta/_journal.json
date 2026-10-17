@@ -92,6 +92,34 @@
       "when": 1791991855568,
       "tag": "0012_seed_otp_config",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791994747727,
+      "tag": "0013_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791994748379,
+      "tag": "0014_seed_session_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791995852524,
+      "tag": "0015_admin_credential",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791995853449,
+      "tag": "0016_seed_admin_auth_config",
+      "breakpoints": true
     }
   ]
 }

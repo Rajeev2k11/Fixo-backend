@@ -19,6 +19,11 @@ const envSchema = z
       .default('info'),
     // Keys the HMACs of OTP codes and phone numbers. Generate with `openssl rand -hex 32`.
     OTP_HMAC_SECRET: z.string().min(32),
+    // Signs access tokens (HS256). Generate with `openssl rand -hex 32`; rotating it logs everyone out
+    // within one access-token lifetime (refresh tokens keep working).
+    JWT_SECRET: z.string().min(32),
+    // AES-256-GCM key for admin MFA secrets at rest: 32 bytes as hex (`openssl rand -hex 32`).
+    MFA_ENCRYPTION_KEY: z.string().regex(/^[0-9a-f]{64}$/i, 'must be 64 hex characters'),
     // Real providers (MSG91) are added when chosen; until then only the console fake exists.
     SMS_PROVIDER: z.enum(['fake']).default('fake'),
   })

@@ -4,3 +4,4 @@ export * from './errors.js';
 export * from './events.js';
 export * from './phone.js';
 export * from './auth.js';
+export * from './admin.js';

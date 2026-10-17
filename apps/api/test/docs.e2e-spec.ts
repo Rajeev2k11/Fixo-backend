@@ -32,7 +32,9 @@ function registeredRoutes(app: INestApplication): string[] {
         const path = Reflect.getMetadata(PATH_METADATA, handler) as string | undefined;
         if (path === undefined) return [];
         const method = Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod;
-        return [`${RequestMethod[method].toLowerCase()} ${join(base, path)}`];
+        // Nest writes path params as :id, OpenAPI as {id}.
+        const openApiPath = join(base, path).replace(/:(\w+)/g, '{$1}');
+        return [`${RequestMethod[method].toLowerCase()} ${openApiPath}`];
       });
     });
 }

@@ -127,6 +127,22 @@ Format: date · decision · reason · spec impact.
   mobile carriers put many users behind one shared IP (CGNAT).
 - **Spec impact:** Fills values §L and §M leave open. Stored as `auth.otp.*` config keys.
 
+### AUTH-1 — Session lifetime on the mobile apps
+- **Decision:** Access token 15 minutes (spec §M). Refresh session: 30 days idle (each refresh
+  extends it), 90 days maximum, then the user logs in with OTP again.
+- **Reason:** Marketplace apps are opened irregularly; workers should rarely need a new OTP,
+  but a lost device does not stay logged in forever.
+- **Spec impact:** Fills the session lifetime §M leaves open. Stored as `auth.access_token_ttl_seconds`,
+  `auth.session.idle_days` and `auth.session.max_days`.
+
+### AUTH-2 — Admin login limits
+- **Decision:** Admin sessions end after 30 minutes idle or 12 hours at most (one working day).
+  Passwords: at least 12 characters, no composition rules (NIST 800-63B). 5 wrong passwords lock
+  the account for 15 minutes. 5 wrong MFA codes end a login attempt. Access token 15 minutes.
+- **Reason:** Spec §M asks for shorter admin sessions and lockout without giving numbers; admin
+  accounts can move money and change rules, so they get much tighter limits than the apps.
+- **Spec impact:** Fills §M. Stored as `auth.admin.*` config keys.
+
 ---
 
 ## Deferred (to be decided before the phase noted)

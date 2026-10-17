@@ -25,6 +25,7 @@ import {
 } from './auth.config.js';
 import { AuthRepository } from './auth.repository.js';
 import { generateCode, hashesEqual, hmac, resendCooldown } from './domain/otp.rules.js';
+import { SessionsService } from './sessions.service.js';
 
 export interface RequestOrigin {
   ip: string;
@@ -49,6 +50,7 @@ export class AuthService {
     private readonly limiter: RateLimiter,
     private readonly config: ConfigService,
     private readonly users: UsersService,
+    private readonly sessions: SessionsService,
   ) {}
 
   /**
@@ -103,7 +105,7 @@ export class AuthService {
    * Checks a code. A wrong guess is committed before the error is thrown, so attempts add up
    * even though each request fails.
    */
-  async verifyOtp(input: OtpVerify): Promise<OtpVerifyResponse> {
+  async verifyOtp(input: OtpVerify, deviceInstallId: string): Promise<OtpVerifyResponse> {
     const phoneHash = hmac(env.OTP_HMAC_SECRET, `phone:${input.phone}`);
     const { value: maxAttempts } = await this.config.resolve(OTP_MAX_ATTEMPTS);
 
@@ -121,8 +123,18 @@ export class AuthService {
 
     if (outcome === 'locked') throw invalid('Too many wrong attempts. Request a new code.');
     if (outcome === 'invalid') throw invalid();
-    const { userId, roles, isNew } = await this.users.findOrCreateByPhone(input.phone, input.role);
-    return { userId, roles, isNew };
+    const user = await this.users.findOrCreateByPhone(input.phone, input.role);
+    if (user.status !== 'active') {
+      throw new AppError(ErrorCode.ACCOUNT_RESTRICTED, 403, 'This account is suspended or blocked');
+    }
+    const tokens = await this.sessions.start(user.userId, input.role, deviceInstallId);
+    return {
+      userId: user.userId,
+      roles: user.roles,
+      activeRole: input.role,
+      isNew: user.isNew,
+      tokens,
+    };
   }
 
   private codeHash(phoneHash: string, code: string): string {

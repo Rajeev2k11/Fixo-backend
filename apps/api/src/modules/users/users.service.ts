@@ -73,6 +73,103 @@ export class UsersService {
   }
 
   /**
+   * Creates an admin account with an email identity and admin roles (spec §D). Admins have no
+   * phone; they log in with email + password + MFA (step 1.11). Audited as an account action.
+   */
+  async createAdmin(input: {
+    email: string;
+    displayName: string;
+    roleCodes: string[];
+    actor: Actor;
+    reason: string;
+  }): Promise<string> {
+    const email = input.email.trim().toLowerCase();
+    return this.db.transaction(async (tx) => {
+      await this.repo.lockIdentity(tx, 'email', email);
+      if (await this.repo.findUserIdByIdentity(tx, 'email', email)) {
+        throw new AppError(
+          ErrorCode.VALIDATION_FAILED,
+          400,
+          `An account for ${email} already exists`,
+        );
+      }
+      const created = await this.repo.createUserWithIdentity(tx, 'email', email);
+      await this.repo.createAdminProfile(tx, created.id, input.displayName);
+      await this.repo.grantAdminRoles(tx, created.id, input.roleCodes);
+      await this.repo.insertHistory(tx, {
+        userId: created.id,
+        fromStatus: null,
+        toStatus: created.status,
+        actorUserId: input.actor.userId,
+        reason: input.reason,
+      });
+      await recordAudit(tx, {
+        actorUserId: input.actor.userId,
+        actorRole: input.actor.role,
+        action: 'user.admin_created',
+        entityType: 'user',
+        entityId: created.id,
+        before: null,
+        after: { roles: input.roleCodes },
+        reason: input.reason,
+      });
+      await appendOutbox(tx, {
+        type: 'user.created',
+        aggregateType: 'user',
+        aggregateId: created.id,
+        payload: { role: 'admin' },
+      });
+      return created.id;
+    });
+  }
+
+  async findUserIdByEmail(email: string): Promise<string | undefined> {
+    return this.repo.findUserIdByIdentity(this.db, 'email', email.trim().toLowerCase());
+  }
+
+  adminRoleCodes(userId: string): Promise<string[]> {
+    return this.repo.adminRoleCodes(this.db, userId);
+  }
+
+  /**
+   * Replaces an admin's roles (audited). Admins cannot change their own roles, so the last
+   * super admin cannot lock everyone out by accident.
+   */
+  async setAdminRoles(input: {
+    userId: string;
+    roleCodes: string[];
+    actor: Actor;
+    reason: string;
+  }): Promise<void> {
+    if (input.userId === input.actor.userId) {
+      throw new AppError(ErrorCode.FORBIDDEN, 403, 'Admins cannot change their own roles');
+    }
+    await this.db.transaction(async (tx) => {
+      const locked = await this.repo.lockUser(tx, input.userId);
+      const before = locked ? await this.repo.adminRoleCodes(tx, input.userId) : [];
+      if (!locked || before.length === 0) {
+        throw new AppError(ErrorCode.NOT_FOUND, 404, 'Admin not found');
+      }
+      await this.repo.replaceAdminRoles(tx, input.userId, input.roleCodes);
+      await recordAudit(tx, {
+        actorUserId: input.actor.userId,
+        actorRole: input.actor.role,
+        action: 'user.admin_roles_changed',
+        entityType: 'user',
+        entityId: input.userId,
+        before: { roles: before },
+        after: { roles: [...input.roleCodes].sort() },
+        reason: input.reason,
+      });
+    });
+  }
+
+  /** Current account status, or undefined if the user does not exist. Checked on every request. */
+  async getStatus(userId: string): Promise<UserStatus | undefined> {
+    return (await this.repo.findById(this.db, userId))?.status;
+  }
+
+  /**
    * The only way an account's status changes: checked against the state machine, compare-and-set
    * on version, and history + audit + outbox event in the same transaction (CLAUDE.md rules 3, 12).
    */
