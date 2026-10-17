@@ -145,6 +145,50 @@ Format: date · decision · reason · spec impact.
 
 ---
 
+## 2026-10-17 — Phase 2 (worker onboarding)
+
+### PHASE-1 — Split worker onboarding across Phases 2 and 3
+- **Decision:** Phase 2 builds the worker profile, KYC, agreement, private document storage and the
+  admin verification queue up to VERIFIED. Areas covered, services and per-subcategory skill
+  verification move to Phase 3, after geography and the service catalogue exist.
+- **Reason:** Spec Phase 2 needs areas and subcategories that only Phase 3 creates, and Phase 3's
+  seed data must be real reference data from the owner. Splitting avoids blocking and rework.
+- **Spec impact:** Phase 2 exit ("full onboarding to VERIFIED through the admin queue") is met with
+  identity verification; worker leads still require skill verification (Phase 3) per §Q.
+
+### WORKER-1 — Worker status machine
+- **Decision:** REGISTERED → (submit) KYC_PENDING → (provider result) UNDER_REVIEW →
+  VERIFIED / REJECTED / back to REGISTERED (resubmission requested, with reason).
+  VERIFIED → UNDER_REVIEW (KYC expired or re-review). VERIFIED ⇄ SUSPENDED (worker-level).
+  REJECTED → REGISTERED only when an admin reopens it.
+- **Reason:** Fills the transitions §C, §D and edge cases 15–16 imply but do not list.
+- **Spec impact:** Worker SUSPENDED stops worker activity only; the account status from Phase 1
+  (active/suspended/blocked) still restricts the whole account, including customer use.
+
+### KYC-1 — Identity documents at launch
+- **Decision:** Aadhaar, verified through the licensed KYC provider (OBD-13), plus a selfie.
+  Stored: provider result, masked Aadhaar (XXXX XXXX 1234) and name; never the full number or an
+  ID image. The selfie is stored in private storage for the admin face check.
+- **Reason:** Aadhaar is the most common ID among workers; storing only masked references limits
+  legal exposure (legal review still required before launch, OBD-13).
+- **Spec impact:** Answers "which documents" in OBD-13. Category licences belong to skill
+  verification (Phase 3). PAN only if payouts or TDS later need it.
+
+### KYC-2 — KYC re-verification interval
+- **Decision:** A verified worker's KYC expires after 24 months, with warnings 30 and 7 days before.
+  On expiry the worker moves to UNDER_REVIEW and receives no new leads; active jobs continue.
+- **Reason:** Catches account handovers without frequent friction.
+- **Spec impact:** Fills the expiry period edge case 15 leaves open. Stored as config.
+
+### BANK-1 — Bank or UPI details only before the first payout
+- **Decision:** Workers are not asked for bank/UPI details during onboarding; they give them before
+  their first payout (stored encrypted, shown masked).
+- **Reason:** Faster onboarding during the free launch period, when there are no payouts yet.
+- **Spec impact:** **Deviates from spec §C.5**, which puts bank/UPI in onboarding KYC. Built with
+  payouts (Phase 7).
+
+---
+
 ## Deferred (to be decided before the phase noted)
 - OBD-2 Lead-fee timing and refunds — Phase 5 (moot while fees are 0).
 - OBD-4 Mandatory in-app quote approval — Phase 6.
