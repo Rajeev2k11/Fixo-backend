@@ -68,7 +68,10 @@ describe('API docs', () => {
   });
 
   it('documents every route the API serves, and nothing else', () => {
-    const served = registeredRoutes(app).filter((r) => !r.includes(' /docs'));
+    // /docs serves this document; /dev/storage stands in for the R2 bucket in development.
+    const served = registeredRoutes(app).filter(
+      (r) => !r.includes(' /docs') && !r.includes(' /dev/storage'),
+    );
 
     expect(documentedRoutes().toSorted()).toEqual(served.toSorted());
   });
@@ -111,6 +114,9 @@ const PUBLIC_ROUTES = [
   'post /admin/auth/mfa',
   'post /admin/auth/refresh', // authenticated by its httpOnly cookie + CSRF header instead
   'post /admin/auth/logout',
+  // dev-only stand-in for the storage bucket: authenticated by the signed link, not a token
+  'put /dev/storage/{purpose}/{id}',
+  'get /dev/storage/{purpose}/{id}',
 ];
 
 describe('authorization surface', () => {

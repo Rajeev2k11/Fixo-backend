@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { ConfigModule } from './modules/config/config.module.js';
 import { DocsModule } from './modules/docs/docs.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { MediaModule } from './modules/media/media.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { IdempotencyInterceptor } from './platform/idempotency/idempotency.interceptor.js';
 
@@ -21,6 +22,7 @@ import { IdempotencyInterceptor } from './platform/idempotency/idempotency.inter
     ConfigModule,
     UsersModule,
     AuthModule,
+    MediaModule,
     HealthModule,
     // API docs are for development; production does not expose them.
     ...(env.NODE_ENV === 'production' ? [] : [DocsModule]),

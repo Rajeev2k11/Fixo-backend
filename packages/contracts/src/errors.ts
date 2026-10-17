@@ -32,6 +32,9 @@ export const ErrorCode = {
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   MFA_INVALID: 'MFA_INVALID',
   CSRF_FAILED: 'CSRF_FAILED',
+  /** The uploaded file was refused (wrong type, too large, or failed the malware scan). */
+  MEDIA_REJECTED: 'MEDIA_REJECTED',
+  MEDIA_NOT_UPLOADED: 'MEDIA_NOT_UPLOADED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

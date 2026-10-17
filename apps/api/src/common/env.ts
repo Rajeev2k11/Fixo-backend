@@ -26,6 +26,12 @@ const envSchema = z
     MFA_ENCRYPTION_KEY: z.string().regex(/^[0-9a-f]{64}$/i, 'must be 64 hex characters'),
     // Real providers (MSG91) are added when chosen; until then only the console fake exists.
     SMS_PROVIDER: z.enum(['fake']).default('fake'),
+    // Private file storage. Cloudflare R2 is added when credentials exist; the fake writes to
+    // STORAGE_LOCAL_DIR and serves HMAC-signed links from this API.
+    STORAGE_PROVIDER: z.enum(['fake']).default('fake'),
+    STORAGE_LOCAL_DIR: z.string().default('.data/media'),
+    // Base URL clients use to reach this API (signed links point here when storage is fake).
+    PUBLIC_BASE_URL: z.url().default('http://localhost:3000'),
   })
   // 'fake' is the only provider today, so lint calls the second check redundant. It is the guard
   // that keeps production from booting with the fake once a real provider is added.
@@ -33,6 +39,11 @@ const envSchema = z
   .refine((e) => !(e.NODE_ENV === 'production' && e.SMS_PROVIDER === 'fake'), {
     path: ['SMS_PROVIDER'],
     message: 'the fake SMS provider prints OTPs to the log and must never run in production',
+  })
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  .refine((e) => !(e.NODE_ENV === 'production' && e.STORAGE_PROVIDER === 'fake'), {
+    path: ['STORAGE_PROVIDER'],
+    message: 'the fake storage keeps KYC files on local disk and must never run in production',
   });
 
 export type Env = z.infer<typeof envSchema>;

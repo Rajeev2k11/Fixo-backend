@@ -1,6 +1,8 @@
 node_modules/
 dist/
 coverage/
+# local fake storage (uploaded files in development)
+.data/
 .turbo/
 *.tsbuildinfo
 *.log

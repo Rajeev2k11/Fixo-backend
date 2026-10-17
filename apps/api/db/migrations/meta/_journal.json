@@ -120,6 +120,20 @@
       "when": 1791995853449,
       "tag": "0016_seed_admin_auth_config",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792241173380,
+      "tag": "0017_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792241174315,
+      "tag": "0018_seed_media_config",
+      "breakpoints": true
     }
   ]
 }

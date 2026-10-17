@@ -1,4 +1,7 @@
 import {
+  mediaSchema,
+  mediaUploadRequestSchema,
+  mediaUploadResponseSchema,
   configRuleSchema,
   createAdminResponseSchema,
   createAdminSchema,
@@ -95,6 +98,12 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     servers: [{ url: '/v1' }],
     tags: [
       { name: 'auth', description: 'Phone OTP login (customers and workers)' },
+      {
+        name: 'media',
+        description:
+          'Private uploads: request an upload URL, PUT the raw bytes there with the declared ' +
+          'Content-Type, then complete. Links are short-lived; ask for a fresh one when needed.',
+      },
       { name: 'admin-config', description: 'Versioned business configuration (spec §Y 9-11)' },
       { name: 'admin-accounts', description: 'Admin accounts and roles (spec §Y 21)' },
       {
@@ -355,6 +364,54 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             '204': { description: 'Roles replaced' },
             '400': validationFailed,
             '404': error('Not an admin', ['NOT_FOUND']),
+            ...authErrors,
+          },
+        },
+      },
+      '/media/uploads': {
+        post: {
+          tags: ['media'],
+          summary: 'Get a short-lived URL to upload one file to private storage',
+          ...secured(),
+          requestBody: {
+            required: true,
+            content: json(input(mediaUploadRequestSchema), {
+              purpose: 'kyc_selfie',
+              contentType: 'image/jpeg',
+              sizeBytes: 482113,
+            }),
+          },
+          responses: {
+            '201': { description: 'Upload URL issued', content: json(output(mediaUploadResponseSchema)) },
+            '400': error('Invalid request or file too large', ['VALIDATION_FAILED']),
+            ...authErrors,
+          },
+        },
+      },
+      '/media/{id}/complete': {
+        post: {
+          tags: ['media'],
+          summary: 'Check the uploaded file (real type, size, malware) and mark it ready',
+          ...secured(),
+          parameters: [idParam('id')],
+          responses: {
+            '200': { description: 'Ready', content: json(output(mediaSchema)) },
+            '404': error('No such file of yours', ['NOT_FOUND']),
+            '409': error('Nothing uploaded yet', ['MEDIA_NOT_UPLOADED']),
+            '422': error('Refused: wrong type, larger than declared, or malware', ['MEDIA_REJECTED']),
+            ...authErrors,
+          },
+        },
+      },
+      '/media/{id}': {
+        get: {
+          tags: ['media'],
+          summary: 'Your file, with a fresh short-lived download link when ready',
+          ...secured(),
+          parameters: [idParam('id')],
+          responses: {
+            '200': { description: 'File', content: json(output(mediaSchema)) },
+            '404': error('No such file of yours', ['NOT_FOUND']),
             ...authErrors,
           },
         },

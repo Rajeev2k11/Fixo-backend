@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -11,8 +11,8 @@ const dotEnv = fileURLToPath(new URL('../../../../.env', import.meta.url));
 const migrationsFolder = fileURLToPath(new URL('../../db/migrations', import.meta.url));
 
 /**
- * Gives the run its own throwaway database (on the compose Postgres) and its own Redis key prefix,
- * so a running dev server and its workers never see test data. Both are removed afterwards.
+ * Gives the run its own throwaway database (on the compose Postgres), Redis key prefix and storage
+ * folder, so a running dev server and its workers never see test data. All are removed afterwards.
  */
 export default async function setup(): Promise<() => Promise<void>> {
   if (existsSync(dotEnv)) process.loadEnvFile(dotEnv);
@@ -29,6 +29,7 @@ export default async function setup(): Promise<() => Promise<void>> {
   testUrl.pathname = `/${name}`;
   process.env.DATABASE_URL = testUrl.toString();
   process.env.REDIS_KEY_PREFIX = name;
+  process.env.STORAGE_LOCAL_DIR = `.data/${name}`; // uploaded files, removed afterwards
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   await migrate(drizzle({ client: pool }), { migrationsFolder });
@@ -41,5 +42,9 @@ export default async function setup(): Promise<() => Promise<void>> {
     const keys = await redis.keys(`${name}:*`); // test-only Redis, so KEYS is fine here
     if (keys.length > 0) await redis.del(...keys);
     await redis.quit();
+    rmSync(fileURLToPath(new URL(`../../../../.data/${name}`, import.meta.url)), {
+      recursive: true,
+      force: true,
+    });
   };
 }

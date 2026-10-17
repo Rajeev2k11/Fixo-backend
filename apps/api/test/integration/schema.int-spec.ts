@@ -39,6 +39,8 @@ const NO_CITY_ID = [
   'session',
   'refresh_token',
   'admin_credential',
+  // belongs to a user; its city is the owner's
+  'media',
 ];
 
 describe('schema conventions (CLAUDE.md rule 9)', () => {

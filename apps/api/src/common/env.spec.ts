@@ -19,6 +19,9 @@ describe('loadEnv', () => {
       REDIS_KEY_PREFIX: 'fixo',
       LOG_LEVEL: 'info',
       SMS_PROVIDER: 'fake',
+      STORAGE_PROVIDER: 'fake',
+      STORAGE_LOCAL_DIR: '.data/media',
+      PUBLIC_BASE_URL: 'http://localhost:3000',
     });
   });
 
@@ -32,8 +35,10 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...required, OTP_HMAC_SECRET: 'short' })).toThrow(/OTP_HMAC_SECRET/);
   });
 
-  it('refuses the fake SMS provider in production, where it would log OTPs', () => {
-    expect(() => loadEnv({ ...required, NODE_ENV: 'production' })).toThrow(/SMS_PROVIDER/);
+  it('refuses the fake SMS and storage providers in production', () => {
+    expect(() => loadEnv({ ...required, NODE_ENV: 'production' })).toThrow(
+      /SMS_PROVIDER[\s\S]*STORAGE_PROVIDER/,
+    );
   });
 
   it('reports every invalid variable in one error', () => {
