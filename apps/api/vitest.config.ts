@@ -16,6 +16,7 @@ export default defineConfig({
       OTP_HMAC_SECRET: 'unit-test-secret-unit-test-secret-0000',
       JWT_SECRET: 'unit-test-jwt-secret-unit-test-jwt-0000',
       MFA_ENCRYPTION_KEY: 'a'.repeat(64),
+      CORS_ORIGINS: 'http://localhost:8082',
     },
   },
 });

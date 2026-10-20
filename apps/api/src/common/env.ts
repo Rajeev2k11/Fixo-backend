@@ -32,6 +32,18 @@ const envSchema = z
     STORAGE_LOCAL_DIR: z.string().default('.data/media'),
     // Base URL clients use to reach this API (signed links point here when storage is fake).
     PUBLIC_BASE_URL: z.url().default('http://localhost:3000'),
+    // Browser origins allowed to call the API (spec §T "strict CORS"), comma-separated. Native apps
+    // send no Origin and are unaffected; leave empty in production unless a web client needs it.
+    CORS_ORIGINS: z
+      .string()
+      .default('')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.url())),
   })
   // 'fake' is the only provider today, so lint calls the second check redundant. It is the guard
   // that keeps production from booting with the fake once a real provider is added.

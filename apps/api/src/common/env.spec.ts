@@ -22,7 +22,16 @@ describe('loadEnv', () => {
       STORAGE_PROVIDER: 'fake',
       STORAGE_LOCAL_DIR: '.data/media',
       PUBLIC_BASE_URL: 'http://localhost:3000',
+      CORS_ORIGINS: [],
     });
+  });
+
+  it('parses CORS_ORIGINS as a list of URLs', () => {
+    expect(
+      loadEnv({ ...required, CORS_ORIGINS: 'http://localhost:8081, http://localhost:8082' })
+        .CORS_ORIGINS,
+    ).toEqual(['http://localhost:8081', 'http://localhost:8082']);
+    expect(() => loadEnv({ ...required, CORS_ORIGINS: 'not-a-url' })).toThrow(/CORS_ORIGINS/);
   });
 
   it('requires the secrets (no defaults for them)', () => {
