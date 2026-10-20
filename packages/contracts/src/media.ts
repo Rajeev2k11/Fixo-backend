@@ -3,7 +3,12 @@ import { z } from 'zod';
 // Private uploads (spec §T): request a signed upload URL, PUT the file there, then complete.
 
 export const imageTypeSchema = z.enum(['image/jpeg', 'image/png', 'image/webp']);
-export const mediaPurposeSchema = z.enum(['profile_photo', 'kyc_selfie']);
+export const mediaPurposeSchema = z.enum([
+  'profile_photo',
+  'kyc_selfie',
+  'aadhaar_front',
+  'aadhaar_back',
+]);
 
 export const mediaUploadRequestSchema = z.strictObject({
   purpose: mediaPurposeSchema,

@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { Actor } from '../../common/actor.js';
 import { AppError } from '../../common/app-error.js';
-import { DB, type Db } from '../../common/db.js';
+import { DB, type Db, type Tx } from '../../common/db.js';
 import { recordAudit } from '../../platform/audit/audit.js';
 import { appendOutbox } from '../../platform/outbox/outbox.js';
 import {
@@ -35,6 +35,15 @@ export interface WorkerTransition {
   requestId?: string | undefined;
 }
 
+export interface OnboardingIdentity {
+  name: string;
+  photoMediaId: string;
+  cityId: string;
+  experienceYears: number;
+  about: string | null;
+  agreementVersion: string;
+}
+
 const notAWorker = () => new AppError(ErrorCode.NOT_FOUND, 404, 'Worker not found');
 
 /** A worker's identity profile and onboarding status (decision WORKER-1). */
@@ -55,36 +64,30 @@ export class WorkerProfileService {
     return { profile, cityId: owner.cityId, agreement };
   }
 
-  /** Name, photo and city; only while the worker can still edit (before submitting). */
-  async updateProfile(
-    userId: string,
-    fields: {
-      name?: string | undefined;
-      photoMediaId?: string | undefined;
-      cityId?: string | undefined;
-    },
-  ): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      const profile = await this.repo.lockWorkerProfile(tx, userId);
-      if (!profile) throw notAWorker();
-      if (!canEditWorkerProfile(profile.status)) {
-        throw new AppError(
-          ErrorCode.PROFILE_LOCKED,
-          409,
-          'Your profile is under review and cannot be changed now',
-        );
-      }
-      const { name, photoMediaId, cityId } = fields;
-      await this.repo.updateWorkerProfile(tx, userId, {
-        ...(name !== undefined && { name }),
-        ...(photoMediaId !== undefined && { photoMediaId }),
-      });
-      if (cityId !== undefined) await this.repo.setUserCity(tx, userId, cityId);
+  /**
+   * The identity part of an onboarding submission (decision PHASE-1/KYC-3), in the caller's
+   * transaction so the whole submission commits together. Only while the worker can edit.
+   */
+  async applyOnboarding(tx: Tx, userId: string, data: OnboardingIdentity): Promise<void> {
+    const profile = await this.repo.lockWorkerProfile(tx, userId);
+    if (!profile) throw notAWorker();
+    if (!canEditWorkerProfile(profile.status)) {
+      throw new AppError(
+        ErrorCode.PROFILE_LOCKED,
+        409,
+        'Your application is already submitted and under review',
+        { status: profile.status },
+      );
+    }
+    await this.repo.updateWorkerProfile(tx, userId, {
+      name: data.name,
+      photoMediaId: data.photoMediaId,
+      experienceYears: data.experienceYears,
+      about: data.about,
+      submittedAt: new Date(),
     });
-  }
-
-  async recordAgreement(userId: string, version: string): Promise<void> {
-    await this.db.transaction((tx) => this.repo.acceptAgreement(tx, userId, version));
+    await this.repo.setUserCity(tx, userId, data.cityId);
+    await this.repo.acceptAgreement(tx, userId, data.agreementVersion);
   }
 
   /**
@@ -92,8 +95,8 @@ export class WorkerProfileService {
    * compare-and-set on version, history + event in one transaction, and an audit row when an
    * admin made the change (rule 12).
    */
-  async transition(input: WorkerTransition): Promise<WorkerProfileRow> {
-    return this.db.transaction(async (tx) => {
+  async transition(input: WorkerTransition, outer?: Tx): Promise<WorkerProfileRow> {
+    const run = async (tx: Tx) => {
       const current = await this.repo.lockWorkerProfile(tx, input.userId);
       if (!current) throw notAWorker();
       if (input.expectedVersion !== undefined && input.expectedVersion !== current.version) {
@@ -151,6 +154,8 @@ export class WorkerProfileService {
         payload: { from: current.status, to: input.to },
       });
       return updated;
-    });
+    };
+    // Joins the caller's transaction when given one (e.g. onboarding submit, event consumers).
+    return outer ? run(outer) : this.db.transaction(run);
   }
 }

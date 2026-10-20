@@ -1,9 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { Server } from 'node:http';
 
-import { errorBodySchema, type WorkerProfile } from '@fixo/contracts';
+import {
+  type EventEnvelope,
+  errorBodySchema,
+  type WorkerOnboarding,
+  type WorkerProfile,
+} from '@fixo/contracts';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -13,16 +19,25 @@ import { configureApp } from '../../src/app.setup.js';
 import type { Actor } from '../../src/common/actor.js';
 import { AppError } from '../../src/common/app-error.js';
 import { SessionsService } from '../../src/modules/auth/sessions.service.js';
+import { CatalogueService } from '../../src/modules/catalogue/catalogue.service.js';
 import { ConfigService } from '../../src/modules/config/config.service.js';
+import { GeoService } from '../../src/modules/geo/geo.service.js';
 import { UsersService } from '../../src/modules/users/users.service.js';
 import { WorkerProfileService } from '../../src/modules/users/worker-profile.service.js';
+import { RunKycCheckOnSubmit } from '../../src/modules/workers/workers.consumers.js';
+import { FakeKycChecker } from '../../src/platform/kyc/kyc-checker.js';
+import { DomainEventsWorker } from '../../src/platform/outbox/domain-events.worker.js';
 import { createUser, newPhone, resetSharedState, uploadReady } from './helpers.js';
 
 const LUCKNOW = 'd4046302-ed40-4bd0-84a7-7a9c98614777';
+const AGREEMENT = '2026-10-v1';
 let app: INestApplication;
 let server: Server;
 let ops: Actor;
+let areaIds: string[];
+let categoryIds: string[];
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = drizzle({ client: pool, casing: 'snake_case' });
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -31,10 +46,40 @@ beforeAll(async () => {
   await app.init();
   server = app.getHttpServer() as Server;
   ops = { userId: await createUser(pool), role: 'operations' };
+
+  // Reference data an admin enters (decision REF-1: nothing is seeded). Names are unique per run.
+  const tag = randomUUID().slice(0, 8);
+  const geo = app.get(GeoService);
+  const catalogue = app.get(CatalogueService);
+  areaIds = [
+    (await geo.createArea({ cityId: LUCKNOW, name: `Gomti ${tag}`, reason: 'test setup' }, ops)).id,
+    (await geo.createArea({ cityId: LUCKNOW, name: `Aliganj ${tag}`, reason: 'test setup' }, ops))
+      .id,
+  ];
+  categoryIds = [
+    (
+      await catalogue.createCategory(
+        { slug: `ac-${tag}`, name: 'AC Service', reason: 'test setup' },
+        ops,
+      )
+    ).id,
+    (
+      await catalogue.createCategory(
+        { slug: `plumber-${tag}`, name: 'Plumber', reason: 'test setup' },
+        ops,
+      )
+    ).id,
+  ];
+  await app.get(ConfigService).propose({
+    key: 'workers.agreement_version',
+    value: AGREEMENT,
+    reason: 'Publish worker agreement',
+    actor: ops,
+  });
 });
 
 afterAll(async () => {
-  await resetSharedState(pool); // removes the agreement versions published here
+  await resetSharedState(pool); // removes the agreement version published here
   await app.close();
   await pool.end();
 });
@@ -45,102 +90,233 @@ async function login(role: 'customer' | 'worker' = 'worker') {
   return { userId, auth: `Bearer ${accessToken}` };
 }
 
+/** Uploads the four files the way the app does and builds a complete, valid submission. */
+async function completeForm(auth: string): Promise<WorkerOnboarding> {
+  const [photo, front, back, selfie] = await Promise.all([
+    uploadReady(server, auth, 'profile_photo'),
+    uploadReady(server, auth, 'aadhaar_front'),
+    uploadReady(server, auth, 'aadhaar_back'),
+    uploadReady(server, auth, 'kyc_selfie'),
+  ]);
+  return {
+    name: 'Ramesh Kumar',
+    photoMediaId: photo,
+    cityId: LUCKNOW,
+    wholeCity: false,
+    areaIds: [areaIds[0] ?? ''],
+    categoryIds: [categoryIds[0] ?? '', categoryIds[1] ?? ''],
+    experienceYears: 6,
+    about: 'Havells service centre, inverter wiring',
+    kyc: { aadhaarFrontMediaId: front, aadhaarBackMediaId: back, selfieMediaId: selfie },
+    availability: {
+      days: ['Mon', 'Tue', 'Sat'],
+      allDay: false,
+      startTime: '09:00',
+      endTime: '19:00',
+      emergency: true,
+    },
+    agreementVersion: AGREEMENT,
+  };
+}
+
 const me = (auth: string) => request(server).get('/v1/workers/me').set('Authorization', auth);
-const patch = (auth: string, body: object) =>
-  request(server).patch('/v1/workers/me').set('Authorization', auth).send(body);
-const accept = (auth: string, version: string) =>
-  request(server).post('/v1/workers/me/agreement').set('Authorization', auth).send({ version });
-const publishAgreement = (version: string) =>
-  app.get(ConfigService).propose({
-    key: 'workers.agreement_version',
-    value: version,
-    reason: `Publish worker agreement ${version}`,
-    actor: ops,
-  });
+const submit = (auth: string, body: object) =>
+  request(server).post('/v1/workers/me/onboarding').set('Authorization', auth).send(body);
 const errorOf = (body: unknown) => errorBodySchema.parse(body).error;
 
-describe('worker profile', () => {
-  it('starts as registered with everything still to do', async () => {
-    const { userId, auth } = await login();
+/** Runs the jobs-process consumer for the latest worker.status_changed event of this worker. */
+async function runKycCheck(userId: string) {
+  const { rows } = await pool.query<{
+    id: string;
+    type: string;
+    aggregate_type: string;
+    aggregate_id: string;
+    occurred_at: Date;
+    payload: Record<string, unknown>;
+  }>(
+    `select * from outbox_event where aggregate_id = $1 and type = 'worker.status_changed'
+     order by occurred_at desc limit 1`,
+    [userId],
+  );
+  const row = rows[0];
+  if (!row) throw new Error('no worker.status_changed event');
+  const event: EventEnvelope = {
+    id: row.id,
+    type: row.type,
+    aggregateType: row.aggregate_type,
+    aggregateId: row.aggregate_id,
+    occurredAt: row.occurred_at.toISOString(),
+    payload: row.payload,
+  };
+  const handler = new RunKycCheckOnSubmit(app.get(WorkerProfileService), new FakeKycChecker());
+  await new DomainEventsWorker(db, [handler]).dispatch(event);
+}
 
-    const res = await me(auth);
+describe('reference data for the app pickers (REF-1)', () => {
+  it('lists active cities, a city’s areas and service categories without logging in', async () => {
+    const cities = await request(server).get('/v1/cities');
+    const areas = await request(server).get(`/v1/areas?cityId=${LUCKNOW}`);
+    const categories = await request(server).get('/v1/services/categories');
+
+    expect(cities.body).toContainEqual({ id: LUCKNOW, name: 'Lucknow' });
+    expect((areas.body as { id: string }[]).map((a) => a.id)).toEqual(
+      expect.arrayContaining(areaIds),
+    );
+    expect((categories.body as { id: string }[]).map((c) => c.id)).toEqual(
+      expect.arrayContaining(categoryIds),
+    );
+  });
+
+  it('refuses a duplicate area in the same city', async () => {
+    const name = `Chowk ${randomUUID().slice(0, 8)}`;
+    await app.get(GeoService).createArea({ cityId: LUCKNOW, name, reason: 'first' }, ops);
+
+    await expect(
+      app.get(GeoService).createArea({ cityId: LUCKNOW, name, reason: 'again' }, ops),
+    ).rejects.toMatchObject({ code: 'ALREADY_EXISTS' });
+  });
+});
+
+describe('onboarding submission (all steps at once)', () => {
+  it('starts empty, then stores every step and moves the worker to kyc_pending', async () => {
+    const { userId, auth } = await login();
+    const before = (await me(auth)).body as WorkerProfile;
+    expect(before).toMatchObject({
+      status: 'registered',
+      submittedAt: null,
+      agreement: { currentVersion: AGREEMENT, acceptedVersion: null },
+      onboarding: {
+        name: null,
+        areaIds: [],
+        categoryIds: [],
+        kycSubmitted: false,
+        availability: null,
+      },
+    });
+
+    const form = await completeForm(auth);
+    const res = await submit(auth, form);
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
+    const after = res.body as WorkerProfile;
+    expect(after).toMatchObject({
       userId,
-      status: 'registered',
-      name: null,
-      photo: null,
-      cityId: null,
-      missing: ['name', 'photo', 'city', 'agreement'],
+      status: 'kyc_pending',
+      agreement: { acceptedVersion: AGREEMENT },
+      onboarding: {
+        name: 'Ramesh Kumar',
+        cityId: LUCKNOW,
+        wholeCity: false,
+        areaIds: form.areaIds,
+        experienceYears: 6,
+        availability: form.availability,
+        kycSubmitted: true,
+      },
     });
+    expect(after.onboarding.categoryIds.toSorted()).toEqual(form.categoryIds.toSorted());
+    expect(after.onboarding.photo?.url).toContain('/v1/dev/storage/profile_photo/');
+    expect(after.submittedAt).not.toBeNull();
+  });
+
+  it('reaches the admin queue (under_review) once the automated KYC check has run', async () => {
+    const { userId, auth } = await login();
+    await submit(auth, await completeForm(auth));
+
+    await runKycCheck(userId);
+
+    expect(((await me(auth)).body as WorkerProfile).status).toBe('under_review');
+  });
+
+  it('reports every problem at once, with the field path, and saves nothing', async () => {
+    const { auth } = await login();
+    const stranger = await login();
+    const form = await completeForm(auth);
+    const theirPhoto = await uploadReady(server, stranger.auth, 'profile_photo');
+
+    const res = await submit(auth, {
+      ...form,
+      photoMediaId: theirPhoto, // someone else's file
+      kyc: { ...form.kyc, aadhaarBackMediaId: form.kyc.aadhaarFrontMediaId }, // wrong purpose
+      areaIds: [randomUUID()], // not an area of the city
+      categoryIds: [randomUUID()], // unknown service
+    });
+
+    expect(res.status).toBe(400);
+    const paths = (errorOf(res.body).details as { path: string }[]).map((d) => d.path).toSorted();
+    expect(paths).toEqual(['areaIds', 'categoryIds', 'kyc.aadhaarBackMediaId', 'photoMediaId']);
+    expect(((await me(auth)).body as WorkerProfile).status).toBe('registered');
+  });
+
+  it('checks the shape too: areas or whole city, and end time after start time', async () => {
+    const { auth } = await login();
+    const form = await completeForm(auth);
+
+    const res = await submit(auth, {
+      ...form,
+      areaIds: [],
+      availability: { ...form.availability, startTime: '18:00', endTime: '09:00' },
+    });
+
+    expect(res.status).toBe(400);
+    const paths = (errorOf(res.body).details as { path: string }[]).map((d) => d.path);
+    expect(paths).toEqual(expect.arrayContaining(['areaIds', 'availability.endTime']));
+  });
+
+  it('accepts the whole city instead of a list of areas', async () => {
+    const { auth } = await login();
+
+    const res = await submit(auth, { ...(await completeForm(auth)), wholeCity: true, areaIds: [] });
+
+    expect(res.status).toBe(200);
+    expect((res.body as WorkerProfile).onboarding).toMatchObject({ wholeCity: true, areaIds: [] });
+  });
+
+  it('only accepts the current agreement version', async () => {
+    const { auth } = await login();
+
+    const res = await submit(auth, {
+      ...(await completeForm(auth)),
+      agreementVersion: '2026-09-draft',
+    });
+
+    expect(res.status).toBe(409);
+    expect(errorOf(res.body).code).toBe('AGREEMENT_OUTDATED');
+  });
+
+  it('cannot be submitted twice, but can be resubmitted after being sent back', async () => {
+    const { userId, auth } = await login();
+    await submit(auth, await completeForm(auth));
+    const twice = await submit(auth, await completeForm(auth));
+    expect(twice.status).toBe(409);
+    expect(errorOf(twice.body).code).toBe('PROFILE_LOCKED');
+
+    await runKycCheck(userId);
+    await app.get(WorkerProfileService).transition({
+      userId,
+      to: 'registered',
+      actor: ops,
+      reason: 'Aadhaar photo is blurry',
+      statusReason: 'Please upload a clearer photo of the Aadhaar back side',
+    });
+    const sentBack = (await me(auth)).body as WorkerProfile;
+    expect(sentBack).toMatchObject({
+      status: 'registered',
+      statusReason: 'Please upload a clearer photo of the Aadhaar back side',
+    });
+
+    const again = await submit(auth, {
+      ...(await completeForm(auth)),
+      areaIds: [areaIds[1] ?? ''],
+    });
+    expect(again.status).toBe(200);
+    expect((again.body as WorkerProfile).onboarding.areaIds).toEqual([areaIds[1]]); // replaced
   });
 
   it('is only for the worker app', async () => {
     const { auth } = await login('customer');
 
-    const res = await me(auth);
-
-    expect(res.status).toBe(403);
-    expect(errorOf(res.body).code).toBe('FORBIDDEN');
-  });
-
-  it('takes a name, an own ready photo and an active city', async () => {
-    const { auth } = await login();
-    const photo = await uploadReady(server, auth, 'profile_photo');
-
-    const res = await patch(auth, { name: 'Ramesh Kumar', photoMediaId: photo, cityId: LUCKNOW });
-
-    expect(res.status).toBe(200);
-    const profile = res.body as WorkerProfile;
-    expect(profile).toMatchObject({
-      name: 'Ramesh Kumar',
-      cityId: LUCKNOW,
-      missing: ['agreement'],
-    });
-    expect(profile.photo?.mediaId).toBe(photo);
-    expect(profile.photo?.url).toContain('/v1/dev/storage/profile_photo/');
-  });
-
-  it('refuses photos that are not your own ready profile photo, and unserved cities', async () => {
-    const { auth } = await login();
-    const stranger = await login();
-    const theirs = await uploadReady(server, stranger.auth, 'profile_photo');
-    const selfie = await uploadReady(server, auth, 'kyc_selfie');
-    const unfinished = await uploadReady(server, auth, 'profile_photo', { complete: false });
-
-    for (const photoMediaId of [theirs, selfie, unfinished]) {
-      expect((await patch(auth, { photoMediaId })).status).toBe(400);
-    }
-    expect((await patch(auth, { cityId: randomUUID() })).status).toBe(400);
-    expect((await patch(auth, {})).status).toBe(400);
-  });
-});
-
-describe('worker agreement', () => {
-  it('can only be accepted once published, and only in its current version', async () => {
-    const { auth } = await login();
-    const unpublished = await accept(auth, 'v1');
-    expect(unpublished.status).toBe(503);
-    expect(errorOf(unpublished.body).code).toBe('AGREEMENT_NOT_PUBLISHED');
-
-    await publishAgreement('2026-10-v1');
-    const stale = await accept(auth, '2026-09-draft');
-    const ok = await accept(auth, '2026-10-v1');
-
-    expect(stale.status).toBe(409);
-    expect(errorOf(stale.body).code).toBe('AGREEMENT_OUTDATED');
-    expect(ok.status).toBe(200);
-    expect((ok.body as WorkerProfile).agreement).toMatchObject({
-      acceptedVersion: '2026-10-v1',
-      currentVersion: '2026-10-v1',
-    });
-    expect((ok.body as WorkerProfile).missing).not.toContain('agreement');
-
-    // A new version puts the agreement back on the to-do list until accepted.
-    await publishAgreement('2026-11-v2');
-    expect(((await me(auth)).body as WorkerProfile).missing).toContain('agreement');
-    expect((await accept(auth, '2026-11-v2')).status).toBe(200);
+    expect((await me(auth)).status).toBe(403);
+    expect((await submit(auth, {})).status).toBe(403);
   });
 });
 
@@ -180,46 +356,11 @@ describe('worker status (WORKER-1)', () => {
       'under_review',
       'registered',
     ]);
-    const events = await pool.query(
-      `select 1 from outbox_event where aggregate_id = $1 and type = 'worker.status_changed'`,
-      [userId],
-    );
-    expect(events.rowCount).toBe(3);
     const audits = await pool.query<{ action: string; reason: string }>(
       'select action, reason from audit_log where entity_id = $1',
       [userId],
     );
     expect(audits.rows).toEqual([{ action: 'worker.status_changed', reason: 'Selfie is blurry' }]);
-  });
-
-  it('shows the resubmission reason to the worker', async () => {
-    const { userId, auth } = await login();
-    await transitions().transition({ userId, to: 'kyc_pending', actor: null, reason: 'x' });
-    await transitions().transition({ userId, to: 'under_review', actor: null, reason: 'x' });
-    await transitions().transition({
-      userId,
-      to: 'registered',
-      actor: ops,
-      reason: 'Name mismatch with Aadhaar',
-      statusReason: 'Use your name as on Aadhaar',
-    });
-
-    const profile = (await me(auth)).body as WorkerProfile;
-
-    expect(profile).toMatchObject({
-      status: 'registered',
-      statusReason: 'Use your name as on Aadhaar',
-    });
-  });
-
-  it('locks the profile after submitting', async () => {
-    const { userId, auth } = await login();
-    await transitions().transition({ userId, to: 'kyc_pending', actor: null, reason: 'submitted' });
-
-    const res = await patch(auth, { name: 'Changed After Submit' });
-
-    expect(res.status).toBe(409);
-    expect(errorOf(res.body).code).toBe('PROFILE_LOCKED');
   });
 
   it('refuses moves WORKER-1 does not allow, and stale versions', async () => {

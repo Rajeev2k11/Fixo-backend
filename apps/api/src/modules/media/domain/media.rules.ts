@@ -12,6 +12,9 @@ export const PURPOSE_RULES: Record<
 > = {
   profile_photo: { roles: ['customer', 'worker'], types: IMAGE_TYPES },
   kyc_selfie: { roles: ['worker'], types: IMAGE_TYPES },
+  // Decision KYC-3: photos of the Aadhaar card, reviewed manually until a KYC provider is added.
+  aadhaar_front: { roles: ['worker'], types: IMAGE_TYPES },
+  aadhaar_back: { roles: ['worker'], types: IMAGE_TYPES },
 };
 
 /** Bytes to read from the start of a file to identify it. */

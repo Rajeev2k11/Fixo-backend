@@ -71,6 +71,9 @@ export const workerProfile = pgTable(
     status: text({ enum: WORKER_STATUSES }).notNull().default('registered'),
     version: integer().notNull().default(1),
     statusReason: text(), // why it was rejected or sent back for resubmission, shown to the worker
+    experienceYears: integer(),
+    about: text(),
+    submittedAt: timestamp({ withTimezone: true }), // last onboarding submission
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

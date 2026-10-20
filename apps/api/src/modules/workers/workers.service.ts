@@ -1,74 +1,116 @@
 import {
+  type Availability,
   ErrorCode,
-  type UpdateWorkerProfile,
+  type WorkerOnboarding,
   type WorkerProfile,
-  onboardingItemSchema,
 } from '@fixo/contracts';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { AppError } from '../../common/app-error.js';
+import { DB, type Db } from '../../common/db.js';
+import { CatalogueService } from '../catalogue/catalogue.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { GeoService } from '../geo/geo.service.js';
 import { MediaService } from '../media/media.service.js';
 import { WorkerProfileService } from '../users/worker-profile.service.js';
+import { WorkersRepository } from './workers.repository.js';
 import { WORKER_AGREEMENT_VERSION } from './workers.config.js';
 
-type OnboardingItem = (typeof onboardingItemSchema.options)[number];
+interface Problem {
+  path: string;
+  message: string;
+}
 
-/** Worker onboarding as the worker app sees it (spec §C steps 1-2 and 6; KYC in step 2.3). */
+/** Worker onboarding as the Partner app sees it: one submission carrying every step. */
 @Injectable()
 export class WorkersService {
   constructor(
+    @Inject(DB) private readonly db: Db,
+    private readonly repo: WorkersRepository,
     private readonly workers: WorkerProfileService,
     private readonly media: MediaService,
     private readonly geo: GeoService,
+    private readonly catalogue: CatalogueService,
     private readonly config: ConfigService,
   ) {}
 
   async me(userId: string): Promise<WorkerProfile> {
-    const [{ profile, cityId, agreement }, currentVersion] = await Promise.all([
+    const [{ profile, cityId, agreement }, capabilities, currentVersion] = await Promise.all([
       this.workers.get(userId),
+      this.repo.find(this.db, userId),
       this.currentAgreementVersion(),
     ]);
-    const missing: OnboardingItem[] = [];
-    if (!profile.name) missing.push('name');
-    if (!profile.photoMediaId) missing.push('photo');
-    if (!cityId) missing.push('city');
-    if (!currentVersion || agreement?.version !== currentVersion) missing.push('agreement');
-
+    const p = capabilities.preference;
     return {
       userId,
       status: profile.status,
       statusReason: profile.statusReason,
-      name: profile.name,
-      photo: profile.photoMediaId
-        ? { mediaId: profile.photoMediaId, url: await this.media.linkFor(profile.photoMediaId) }
-        : null,
-      cityId,
-      agreement: {
-        acceptedVersion: agreement?.version ?? null,
-        acceptedAt: agreement?.acceptedAt.toISOString() ?? null,
-        currentVersion,
+      submittedAt: profile.submittedAt?.toISOString() ?? null,
+      agreement: { acceptedVersion: agreement?.version ?? null, currentVersion },
+      onboarding: {
+        name: profile.name,
+        photo: profile.photoMediaId
+          ? { mediaId: profile.photoMediaId, url: await this.media.linkFor(profile.photoMediaId) }
+          : null,
+        cityId,
+        wholeCity: p?.wholeCity ?? false,
+        areaIds: capabilities.areaIds,
+        categoryIds: capabilities.categoryIds,
+        experienceYears: profile.experienceYears,
+        about: profile.about,
+        availability: p
+          ? {
+              // Stored only from input validated by availabilitySchema.
+              days: p.days as Availability['days'],
+              allDay: p.allDay,
+              startTime: p.startTime,
+              endTime: p.endTime,
+              emergency: p.emergency,
+            }
+          : null,
+        kycSubmitted: capabilities.kycSubmitted,
       },
-      missing,
     };
   }
 
-  async update(userId: string, input: UpdateWorkerProfile): Promise<WorkerProfile> {
-    if (input.photoMediaId) {
-      await this.media.assertUsable(userId, input.photoMediaId, 'profile_photo');
-    }
-    if (input.cityId && !(await this.geo.findActiveCity(input.cityId))) {
-      throw new AppError(ErrorCode.VALIDATION_FAILED, 400, 'FIXO does not serve this city yet', {
+  /**
+   * Final onboarding submission. Checks everything (reporting all problems at once, so the app
+   * can send the worker to the right step), then saves it and moves the worker to KYC_PENDING
+   * in one transaction: all of it is stored, or none of it.
+   */
+  async submit(userId: string, input: WorkerOnboarding): Promise<WorkerProfile> {
+    await this.validate(userId, input);
+    await this.db.transaction(async (tx) => {
+      await this.workers.applyOnboarding(tx, userId, {
+        name: input.name,
+        photoMediaId: input.photoMediaId,
         cityId: input.cityId,
+        experienceYears: input.experienceYears,
+        about: input.about?.length ? input.about : null,
+        agreementVersion: input.agreementVersion,
       });
-    }
-    await this.workers.updateProfile(userId, input);
+      await this.repo.replace(tx, userId, {
+        cityId: input.cityId,
+        wholeCity: input.wholeCity,
+        areaIds: input.wholeCity ? [] : input.areaIds,
+        categoryIds: input.categoryIds,
+        availability: input.availability,
+        kyc: input.kyc,
+      });
+      await this.workers.transition(
+        {
+          userId,
+          to: 'kyc_pending',
+          actor: { userId, role: 'worker' },
+          reason: 'onboarding submitted',
+        },
+        tx,
+      );
+    });
     return this.me(userId);
   }
 
-  /** Accepting means accepting the text the app showed: only the current version is accepted. */
-  async acceptAgreement(userId: string, version: string): Promise<WorkerProfile> {
+  private async validate(userId: string, input: WorkerOnboarding): Promise<void> {
     const current = await this.currentAgreementVersion();
     if (!current) {
       throw new AppError(
@@ -77,13 +119,47 @@ export class WorkersService {
         'The worker agreement is not published yet',
       );
     }
-    if (version !== current) {
+    if (input.agreementVersion !== current) {
       throw new AppError(ErrorCode.AGREEMENT_OUTDATED, 409, 'A newer agreement exists; review it', {
         currentVersion: current,
       });
     }
-    await this.workers.recordAgreement(userId, version);
-    return this.me(userId);
+
+    const files: [string, string, Parameters<MediaService['isUsable']>[2]][] = [
+      ['photoMediaId', input.photoMediaId, 'profile_photo'],
+      ['kyc.aadhaarFrontMediaId', input.kyc.aadhaarFrontMediaId, 'aadhaar_front'],
+      ['kyc.aadhaarBackMediaId', input.kyc.aadhaarBackMediaId, 'aadhaar_back'],
+      ['kyc.selfieMediaId', input.kyc.selfieMediaId, 'kyc_selfie'],
+    ];
+    const [usable, city, badAreas, badCategories] = await Promise.all([
+      Promise.all(files.map(([, id, purpose]) => this.media.isUsable(userId, id, purpose))),
+      this.geo.findActiveCity(input.cityId),
+      input.wholeCity ? Promise.resolve([]) : this.geo.invalidAreaIds(input.cityId, input.areaIds),
+      this.catalogue.invalidCategoryIds(input.categoryIds),
+    ]);
+
+    const problems: Problem[] = [];
+    files.forEach(([path, , purpose], i) => {
+      if (!usable[i]) problems.push({ path, message: `Upload a ${purpose} first and use its id` });
+    });
+    if (!city) problems.push({ path: 'cityId', message: 'FIXO does not serve this city yet' });
+    else if (badAreas.length > 0) {
+      problems.push({ path: 'areaIds', message: `Not areas of this city: ${badAreas.join(', ')}` });
+    }
+    if (badCategories.length > 0) {
+      problems.push({
+        path: 'categoryIds',
+        message: `Unknown services: ${badCategories.join(', ')}`,
+      });
+    }
+    if (problems.length > 0) {
+      throw new AppError(
+        ErrorCode.VALIDATION_FAILED,
+        400,
+        'Some onboarding details need fixing',
+        problems,
+      );
+    }
   }
 
   private async currentAgreementVersion(): Promise<string | null> {

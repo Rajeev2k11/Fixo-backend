@@ -7,6 +7,9 @@ import { env } from './common/env.js';
 import { loggerParams } from './common/logger.js';
 import { queuePrefix, redisOptions } from './common/redis.js';
 import { RevokeSessionsOnRestriction } from './modules/auth/auth.consumers.js';
+import { UsersModule } from './modules/users/users.module.js';
+import { RunKycCheckOnSubmit } from './modules/workers/workers.consumers.js';
+import { FakeKycChecker, KYC_CHECKER } from './platform/kyc/kyc-checker.js';
 import { AuthRepository } from './modules/auth/auth.repository.js';
 import {
   DomainEventsWorker,
@@ -21,7 +24,7 @@ import { SmsWorkerModule } from './platform/sms/sms.js';
  * processes share the same modules: same code, separate entry point.
  */
 @Module({
-  imports: [LoggerModule.forRoot(loggerParams(env)), DbModule, SmsWorkerModule],
+  imports: [LoggerModule.forRoot(loggerParams(env)), DbModule, SmsWorkerModule, UsersModule],
   providers: [
     {
       provide: EVENT_QUEUE,
@@ -32,9 +35,11 @@ import { SmsWorkerModule } from './platform/sms/sms.js';
     // Event consumers: add each module's handlers to EVENT_HANDLERS.
     AuthRepository,
     RevokeSessionsOnRestriction,
+    { provide: KYC_CHECKER, useClass: FakeKycChecker },
+    RunKycCheckOnSubmit,
     {
       provide: EVENT_HANDLERS,
-      inject: [RevokeSessionsOnRestriction],
+      inject: [RevokeSessionsOnRestriction, RunKycCheckOnSubmit],
       useFactory: (...handlers: EventHandler[]) => handlers,
     },
     DomainEventsWorker,

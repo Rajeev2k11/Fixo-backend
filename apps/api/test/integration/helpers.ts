@@ -59,7 +59,7 @@ export const jpegBytes = (size = 1024): Buffer =>
 export async function uploadReady(
   server: Server,
   auth: string,
-  purpose: 'profile_photo' | 'kyc_selfie',
+  purpose: 'profile_photo' | 'kyc_selfie' | 'aadhaar_front' | 'aadhaar_back',
   options: { complete?: boolean } = {},
 ): Promise<string> {
   const bytes = jpegBytes();

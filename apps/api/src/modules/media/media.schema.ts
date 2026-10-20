@@ -15,7 +15,9 @@ export const media = pgTable(
     ownerUserId: uuid()
       .notNull()
       .references(() => user.id),
-    purpose: text({ enum: ['profile_photo', 'kyc_selfie'] }).notNull(),
+    purpose: text({
+      enum: ['profile_photo', 'kyc_selfie', 'aadhaar_front', 'aadhaar_back'],
+    }).notNull(),
     status: text({ enum: ['pending', 'ready', 'rejected'] })
       .notNull()
       .default('pending'),
@@ -29,7 +31,10 @@ export const media = pgTable(
     readyAt: timestamp({ withTimezone: true }),
   },
   (t) => [
-    check('media_purpose_check', sql`${t.purpose} in ('profile_photo', 'kyc_selfie')`),
+    check(
+      'media_purpose_check',
+      sql`${t.purpose} in ('profile_photo', 'kyc_selfie', 'aadhaar_front', 'aadhaar_back')`,
+    ),
     check('media_status_check', sql`${t.status} in ('pending', 'ready', 'rejected')`),
     index('media_owner_idx').on(t.ownerUserId),
   ],

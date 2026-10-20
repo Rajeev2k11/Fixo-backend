@@ -1,6 +1,10 @@
 import {
-  acceptAgreementSchema,
-  updateWorkerProfileSchema,
+  areaSchema,
+  citySchema,
+  createAreaSchema,
+  createServiceCategorySchema,
+  serviceCategorySchema,
+  workerOnboardingSchema,
   workerProfileSchema,
   mediaSchema,
   mediaUploadRequestSchema,
@@ -104,9 +108,11 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       {
         name: 'workers',
         description:
-          'Worker app onboarding (worker sessions only). `missing` lists what is left before ' +
-          'the worker can submit for review.',
+          'Worker app onboarding (worker sessions only): the app collects all steps and submits ' +
+          'them once to /workers/me/onboarding.',
       },
+      { name: 'reference', description: 'Public pickers: cities, areas, service categories' },
+      { name: 'admin-reference', description: 'Admin setup of areas and service categories (REF-1)' },
       {
         name: 'media',
         description:
@@ -428,40 +434,97 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       '/workers/me': {
         get: {
           tags: ['workers'],
-          summary: 'Your worker profile, status and onboarding checklist',
+          summary: 'Your worker status and what you last submitted',
           ...secured(),
           responses: {
             '200': { description: 'Profile', content: json(output(workerProfileSchema)) },
             ...authErrors,
           },
         },
-        patch: {
+      },
+      '/workers/me/onboarding': {
+        post: {
           tags: ['workers'],
-          summary: 'Set name, photo (a ready profile_photo upload) and city',
-          description: 'Only while the status is registered (before submitting, or when sent back).',
+          summary: 'Submit every onboarding step at once (also to resubmit after being sent back)',
+          description:
+            'Upload the photo, Aadhaar front/back and selfie through /media first and send their ids. ' +
+            'Everything is checked and all problems are returned together in error.details ' +
+            '(path + message), so the app can open the right step. On success the status becomes ' +
+            'kyc_pending, then under_review once the automated KYC check has run.',
           ...secured(),
-          requestBody: {
-            required: true,
-            content: json(input(updateWorkerProfileSchema), { name: 'Ramesh Kumar' }),
-          },
+          requestBody: { required: true, content: json(input(workerOnboardingSchema)) },
           responses: {
-            '200': { description: 'Updated profile', content: json(output(workerProfileSchema)) },
-            '400': error('Invalid field, unusable photo, or city not served', ['VALIDATION_FAILED']),
-            '409': error('Profile is under review', ['PROFILE_LOCKED']),
+            '200': { description: 'Submitted', content: json(output(workerProfileSchema)) },
+            '400': error('Invalid fields, unusable uploads, or unknown city/areas/services', [
+              'VALIDATION_FAILED',
+            ]),
+            '409': error('Already submitted, or a newer agreement exists', [
+              'PROFILE_LOCKED',
+              'AGREEMENT_OUTDATED',
+            ]),
+            '503': error('No agreement published yet', ['AGREEMENT_NOT_PUBLISHED']),
             ...authErrors,
           },
         },
       },
-      '/workers/me/agreement': {
-        post: {
-          tags: ['workers'],
-          summary: 'Accept the current worker agreement version',
-          ...secured(),
-          requestBody: { required: true, content: json(input(acceptAgreementSchema)) },
+      '/cities': {
+        get: {
+          tags: ['reference'],
+          summary: 'Cities FIXO serves (active only)',
           responses: {
-            '200': { description: 'Accepted', content: json(output(workerProfileSchema)) },
-            '409': error('A newer version exists', ['AGREEMENT_OUTDATED']),
-            '503': error('No agreement published yet', ['AGREEMENT_NOT_PUBLISHED']),
+            '200': { description: 'Cities', content: json({ type: 'array', items: output(citySchema) }) },
+          },
+        },
+      },
+      '/areas': {
+        get: {
+          tags: ['reference'],
+          summary: 'Active areas of a city',
+          parameters: [
+            { name: 'cityId', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            '200': { description: 'Areas', content: json({ type: 'array', items: output(areaSchema) }) },
+            '400': validationFailed,
+          },
+        },
+      },
+      '/services/categories': {
+        get: {
+          tags: ['reference'],
+          summary: 'Active service categories',
+          responses: {
+            '200': {
+              description: 'Categories',
+              content: json({ type: 'array', items: output(serviceCategorySchema) }),
+            },
+          },
+        },
+      },
+      '/admin/geo/areas': {
+        post: {
+          tags: ['admin-reference'],
+          summary: 'Add an area to a city',
+          ...secured('super_admin, operations'),
+          requestBody: { required: true, content: json(input(createAreaSchema)) },
+          responses: {
+            '201': { description: 'Created', content: json(output(areaSchema)) },
+            '400': validationFailed,
+            '409': error('Area already exists in this city', ['ALREADY_EXISTS']),
+            ...authErrors,
+          },
+        },
+      },
+      '/admin/catalogue/categories': {
+        post: {
+          tags: ['admin-reference'],
+          summary: 'Add a service category',
+          ...secured('super_admin, operations'),
+          requestBody: { required: true, content: json(input(createServiceCategorySchema)) },
+          responses: {
+            '201': { description: 'Created', content: json(output(serviceCategorySchema)) },
+            '400': validationFailed,
+            '409': error('Category slug already exists', ['ALREADY_EXISTS']),
             ...authErrors,
           },
         },

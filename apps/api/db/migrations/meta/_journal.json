@@ -141,6 +141,13 @@
       "when": 1792242182274,
       "tag": "0019_worker_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792516305914,
+      "tag": "0020_worker_onboarding_submission",
+      "breakpoints": true
     }
   ]
 }

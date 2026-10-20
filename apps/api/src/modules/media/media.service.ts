@@ -126,6 +126,16 @@ export class MediaService {
     );
   }
 
+  /** For other modules: is `mediaId` a ready file of `purpose` owned by `ownerUserId`? */
+  async isUsable(
+    ownerUserId: string,
+    mediaId: string,
+    purpose: MediaRow['purpose'],
+  ): Promise<boolean> {
+    const row = await this.repo.findOwned(this.db, mediaId, ownerUserId);
+    return row?.status === 'ready' && row.purpose === purpose;
+  }
+
   /**
    * For other modules: confirms `mediaId` is a ready file of `purpose` owned by `ownerUserId`,
    * so a worker cannot attach someone else's photo or an unchecked upload.

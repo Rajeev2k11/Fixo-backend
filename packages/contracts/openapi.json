@@ -17,7 +17,15 @@
     },
     {
       "name": "workers",
-      "description": "Worker app onboarding (worker sessions only). `missing` lists what is left before the worker can submit for review."
+      "description": "Worker app onboarding (worker sessions only): the app collects all steps and submits them once to /workers/me/onboarding."
+    },
+    {
+      "name": "reference",
+      "description": "Public pickers: cities, areas, service categories"
+    },
+    {
+      "name": "admin-reference",
+      "description": "Admin setup of areas and service categories (REF-1)"
     },
     {
       "name": "media",
@@ -2087,7 +2095,9 @@
                     "type": "string",
                     "enum": [
                       "profile_photo",
-                      "kyc_selfie"
+                      "kyc_selfie",
+                      "aadhaar_front",
+                      "aadhaar_back"
                     ]
                   },
                   "contentType": {
@@ -2223,7 +2233,9 @@
                       "type": "string",
                       "enum": [
                         "profile_photo",
-                        "kyc_selfie"
+                        "kyc_selfie",
+                        "aadhaar_front",
+                        "aadhaar_back"
                       ]
                     },
                     "status": {
@@ -2379,7 +2391,9 @@
                       "type": "string",
                       "enum": [
                         "profile_photo",
-                        "kyc_selfie"
+                        "kyc_selfie",
+                        "aadhaar_front",
+                        "aadhaar_back"
                       ]
                     },
                     "status": {
@@ -2481,7 +2495,7 @@
         "tags": [
           "workers"
         ],
-        "summary": "Your worker profile, status and onboarding checklist",
+        "summary": "Your worker status and what you last submitted",
         "security": [
           {
             "bearerAuth": []
@@ -2517,46 +2531,12 @@
                         "null"
                       ]
                     },
-                    "name": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "photo": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "mediaId": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "url": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
-                          },
-                          "required": [
-                            "mediaId",
-                            "url"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "cityId": {
+                    "submittedAt": {
                       "anyOf": [
                         {
                           "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                         },
                         {
                           "type": "null"
@@ -2572,18 +2552,6 @@
                             "null"
                           ]
                         },
-                        "acceptedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time",
-                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
                         "currentVersion": {
                           "type": [
                             "string",
@@ -2593,33 +2561,172 @@
                       },
                       "required": [
                         "acceptedVersion",
-                        "acceptedAt",
                         "currentVersion"
                       ],
                       "additionalProperties": false
                     },
-                    "missing": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "enum": [
-                          "name",
-                          "photo",
-                          "city",
-                          "agreement"
-                        ]
-                      }
+                    "onboarding": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "photo": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "mediaId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "url": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "mediaId",
+                                "url"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cityId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "wholeCity": {
+                          "type": "boolean"
+                        },
+                        "areaIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "categoryIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "experienceYears": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "about": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "availability": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "days": {
+                                  "minItems": 1,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "Mon",
+                                      "Tue",
+                                      "Wed",
+                                      "Thu",
+                                      "Fri",
+                                      "Sat",
+                                      "Sun"
+                                    ]
+                                  }
+                                },
+                                "allDay": {
+                                  "type": "boolean"
+                                },
+                                "startTime": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "endTime": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "emergency": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "days",
+                                "allDay",
+                                "startTime",
+                                "endTime",
+                                "emergency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "kycSubmitted": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "photo",
+                        "cityId",
+                        "wholeCity",
+                        "areaIds",
+                        "categoryIds",
+                        "experienceYears",
+                        "about",
+                        "availability",
+                        "kycSubmitted"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "userId",
                     "status",
                     "statusReason",
-                    "name",
-                    "photo",
-                    "cityId",
+                    "submittedAt",
                     "agreement",
-                    "missing"
+                    "onboarding"
                   ],
                   "additionalProperties": false
                 }
@@ -2647,13 +2754,15 @@
             }
           }
         }
-      },
-      "patch": {
+      }
+    },
+    "/workers/me/onboarding": {
+      "post": {
         "tags": [
           "workers"
         ],
-        "summary": "Set name, photo (a ready profile_photo upload) and city",
-        "description": "Only while the status is registered (before submitting, or when sent back).",
+        "summary": "Submit every onboarding step at once (also to resubmit after being sent back)",
+        "description": "Upload the photo, Aadhaar front/back and selfie through /media first and send their ids. Everything is checked and all problems are returned together in error.details (path + message), so the app can open the right step. On success the status becomes kyc_pending, then under_review once the automated KYC check has run.",
         "security": [
           {
             "bearerAuth": []
@@ -2680,19 +2789,133 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "wholeCity": {
+                    "type": "boolean"
+                  },
+                  "areaIds": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "categoryIds": {
+                    "minItems": 1,
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "experienceYears": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50
+                  },
+                  "about": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "kyc": {
+                    "type": "object",
+                    "properties": {
+                      "aadhaarFrontMediaId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "aadhaarBackMediaId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "selfieMediaId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "required": [
+                      "aadhaarFrontMediaId",
+                      "aadhaarBackMediaId",
+                      "selfieMediaId"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "availability": {
+                    "type": "object",
+                    "properties": {
+                      "days": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "Mon",
+                            "Tue",
+                            "Wed",
+                            "Thu",
+                            "Fri",
+                            "Sat",
+                            "Sun"
+                          ]
+                        }
+                      },
+                      "allDay": {
+                        "type": "boolean"
+                      },
+                      "startTime": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      "endTime": {
+                        "type": "string",
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      "emergency": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "days",
+                      "allDay",
+                      "startTime",
+                      "endTime",
+                      "emergency"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "agreementVersion": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
                   }
                 },
+                "required": [
+                  "name",
+                  "photoMediaId",
+                  "cityId",
+                  "wholeCity",
+                  "areaIds",
+                  "categoryIds",
+                  "experienceYears",
+                  "kyc",
+                  "availability",
+                  "agreementVersion"
+                ],
                 "additionalProperties": false
-              },
-              "example": {
-                "name": "Ramesh Kumar"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Updated profile",
+            "description": "Submitted",
             "content": {
               "application/json": {
                 "schema": {
@@ -2720,46 +2943,12 @@
                         "null"
                       ]
                     },
-                    "name": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "photo": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "mediaId": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "url": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
-                          },
-                          "required": [
-                            "mediaId",
-                            "url"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "cityId": {
+                    "submittedAt": {
                       "anyOf": [
                         {
                           "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                         },
                         {
                           "type": "null"
@@ -2775,18 +2964,6 @@
                             "null"
                           ]
                         },
-                        "acceptedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time",
-                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
                         "currentVersion": {
                           "type": [
                             "string",
@@ -2796,33 +2973,172 @@
                       },
                       "required": [
                         "acceptedVersion",
-                        "acceptedAt",
                         "currentVersion"
                       ],
                       "additionalProperties": false
                     },
-                    "missing": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "enum": [
-                          "name",
-                          "photo",
-                          "city",
-                          "agreement"
-                        ]
-                      }
+                    "onboarding": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "photo": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "mediaId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "url": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "mediaId",
+                                "url"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cityId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "wholeCity": {
+                          "type": "boolean"
+                        },
+                        "areaIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "categoryIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "experienceYears": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "about": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "availability": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "days": {
+                                  "minItems": 1,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "Mon",
+                                      "Tue",
+                                      "Wed",
+                                      "Thu",
+                                      "Fri",
+                                      "Sat",
+                                      "Sun"
+                                    ]
+                                  }
+                                },
+                                "allDay": {
+                                  "type": "boolean"
+                                },
+                                "startTime": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "endTime": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                },
+                                "emergency": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "days",
+                                "allDay",
+                                "startTime",
+                                "endTime",
+                                "emergency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "kycSubmitted": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "photo",
+                        "cityId",
+                        "wholeCity",
+                        "areaIds",
+                        "categoryIds",
+                        "experienceYears",
+                        "about",
+                        "availability",
+                        "kycSubmitted"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "userId",
                     "status",
                     "statusReason",
-                    "name",
-                    "photo",
-                    "cityId",
+                    "submittedAt",
                     "agreement",
-                    "missing"
+                    "onboarding"
                   ],
                   "additionalProperties": false
                 }
@@ -2830,7 +3146,7 @@
             }
           },
           "400": {
-            "description": "Invalid field, unusable photo, or city not served. error.code: VALIDATION_FAILED",
+            "description": "Invalid fields, unusable uploads, or unknown city/areas/services. error.code: VALIDATION_FAILED",
             "content": {
               "application/json": {
                 "schema": {
@@ -2860,7 +3176,17 @@
             }
           },
           "409": {
-            "description": "Profile is under review. error.code: PROFILE_LOCKED",
+            "description": "Already submitted, or a newer agreement exists. error.code: PROFILE_LOCKED, AGREEMENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No agreement published yet. error.code: AGREEMENT_NOT_PUBLISHED",
             "content": {
               "application/json": {
                 "schema": {
@@ -2872,17 +3198,163 @@
         }
       }
     },
-    "/workers/me/agreement": {
+    "/cities": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Cities FIXO serves (active only)",
+        "responses": {
+          "200": {
+            "description": "Cities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/areas": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Active areas of a city",
+        "parameters": [
+          {
+            "name": "cityId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Areas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "cityId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "cityId",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body or header failed validation. error.code: VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/services/categories": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Active service categories",
+        "responses": {
+          "200": {
+            "description": "Categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "slug": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "slug",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/geo/areas": {
       "post": {
         "tags": [
-          "workers"
+          "admin-reference"
         ],
-        "summary": "Accept the current worker agreement version",
+        "summary": "Add an area to a city",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "x-admin-roles": "super_admin, operations",
         "requestBody": {
           "required": true,
           "content": {
@@ -2890,14 +3362,26 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "version": {
+                  "cityId": {
                     "type": "string",
-                    "minLength": 1,
-                    "maxLength": 50
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 500
                   }
                 },
                 "required": [
-                  "version"
+                  "cityId",
+                  "name",
+                  "reason"
                 ],
                 "additionalProperties": false
               }
@@ -2905,140 +3389,43 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Accepted",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "userId": {
+                    "id": {
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
-                    "status": {
+                    "cityId": {
                       "type": "string",
-                      "enum": [
-                        "registered",
-                        "kyc_pending",
-                        "under_review",
-                        "verified",
-                        "rejected",
-                        "suspended"
-                      ]
-                    },
-                    "statusReason": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
                     "name": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "photo": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "mediaId": {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            "url": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            }
-                          },
-                          "required": [
-                            "mediaId",
-                            "url"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "cityId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "agreement": {
-                      "type": "object",
-                      "properties": {
-                        "acceptedVersion": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
-                        "acceptedAt": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "date-time",
-                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "currentVersion": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "acceptedVersion",
-                        "acceptedAt",
-                        "currentVersion"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "missing": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "enum": [
-                          "name",
-                          "photo",
-                          "city",
-                          "agreement"
-                        ]
-                      }
+                      "type": "string"
                     }
                   },
                   "required": [
-                    "userId",
-                    "status",
-                    "statusReason",
-                    "name",
-                    "photo",
+                    "id",
                     "cityId",
-                    "agreement",
-                    "missing"
+                    "name"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body or header failed validation. error.code: VALIDATION_FAILED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             }
@@ -3064,7 +3451,99 @@
             }
           },
           "409": {
-            "description": "A newer version exists. error.code: AGREEMENT_OUTDATED",
+            "description": "Area already exists in this city. error.code: ALREADY_EXISTS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/catalogue/categories": {
+      "post": {
+        "tags": [
+          "admin-reference"
+        ],
+        "summary": "Add a service category",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-admin-roles": "super_admin, operations",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 80
+                  },
+                  "sortOrder": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "slug",
+                  "name",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "slug",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Body or header failed validation. error.code: VALIDATION_FAILED",
             "content": {
               "application/json": {
                 "schema": {
@@ -3073,8 +3552,28 @@
               }
             }
           },
-          "503": {
-            "description": "No agreement published yet. error.code: AGREEMENT_NOT_PUBLISHED",
+          "401": {
+            "description": "Missing, invalid or expired access token: refresh it. error.code: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role not allowed, or account restricted. error.code: FORBIDDEN, ACCOUNT_RESTRICTED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Category slug already exists. error.code: ALREADY_EXISTS",
             "content": {
               "application/json": {
                 "schema": {

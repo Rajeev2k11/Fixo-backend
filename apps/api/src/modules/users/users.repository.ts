@@ -147,7 +147,13 @@ export class UsersRepository {
   async updateWorkerProfile(
     tx: Tx,
     userId: string,
-    fields: { name?: string; photoMediaId?: string },
+    fields: {
+      name: string;
+      photoMediaId: string;
+      experienceYears: number;
+      about: string | null;
+      submittedAt: Date;
+    },
   ): Promise<void> {
     await tx
       .update(workerProfile)

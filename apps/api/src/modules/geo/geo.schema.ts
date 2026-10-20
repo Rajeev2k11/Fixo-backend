@@ -51,3 +51,24 @@ export const city = pgTable('city', {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * A locality within a city that workers cover and customers live in (spec §A). Admin-managed;
+ * nothing is seeded until the owner provides the real list (decision REF-1). Polygons and
+ * service zones arrive in Phase 3.
+ */
+export const area = pgTable(
+  'area',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    cityId: uuid()
+      .notNull()
+      .references(() => city.id),
+    slug: text().notNull(),
+    name: text().notNull(),
+    isActive: boolean().notNull().default(true),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('area_city_id_slug_unique').on(t.cityId, t.slug)],
+);

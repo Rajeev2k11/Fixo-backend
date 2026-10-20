@@ -37,6 +37,7 @@ export const ErrorCode = {
   MEDIA_NOT_UPLOADED: 'MEDIA_NOT_UPLOADED',
   /** The worker has submitted for review; the profile cannot change until sent back. */
   PROFILE_LOCKED: 'PROFILE_LOCKED',
+  ALREADY_EXISTS: 'ALREADY_EXISTS',
   /** A newer agreement version exists: show it and accept that one. */
   AGREEMENT_OUTDATED: 'AGREEMENT_OUTDATED',
   AGREEMENT_NOT_PUBLISHED: 'AGREEMENT_NOT_PUBLISHED',

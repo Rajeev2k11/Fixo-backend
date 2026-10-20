@@ -187,6 +187,30 @@ Format: date · decision · reason · spec impact.
 - **Spec impact:** **Deviates from spec §C.5**, which puts bank/UPI in onboarding KYC. Built with
   payouts (Phase 7).
 
+## 2026-10-20 — Onboarding aligned with the FIXO Partner app
+
+### KYC-3 — Aadhaar photos now, licensed provider later (revises KYC-1)
+- **Decision:** Workers upload photos of the Aadhaar card (front and back) and a live selfie, as the
+  Partner app does. Files sit in private storage, reachable only through short-lived signed links;
+  admins review them manually and every view is logged. A licensed provider's Aadhaar check is
+  added before scale.
+- **Reason:** Matches the app already built; no KYC provider is chosen yet.
+- **Spec impact:** Replaces KYC-1's "never store ID images". Storing Aadhaar copies has legal
+  conditions (UIDAI); the legal review in OBD-13 is required before launch.
+
+### BANK-1 confirmed — the app's Bank/UPI onboarding step is dropped
+- **Decision:** BANK-1 stands: no bank/UPI during onboarding. The Partner app's step 6 is removed or
+  made skippable until payouts (Phase 7).
+- **Reason:** Owner's choice when the app and BANK-1 disagreed.
+
+### REF-1 — Areas and service categories start empty
+- **Decision:** Tables and API endpoints for areas (per city) and service categories are built now,
+  but nothing is seeded; the app's mock lists are not real reference data. Admins add the real
+  lists through the API (or the owner provides them for a seed migration).
+- **Reason:** Spec: seed data must be the owner's real reference data; nothing is invented.
+- **Spec impact:** Pulls a minimal area and service-category model forward from Phase 3 (no
+  polygons, subcategories or problems yet). Workers cannot finish onboarding until the lists exist.
+
 ---
 
 ## Deferred (to be decided before the phase noted)

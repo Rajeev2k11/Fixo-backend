@@ -114,6 +114,10 @@ const PUBLIC_ROUTES = [
   'post /admin/auth/mfa',
   'post /admin/auth/refresh', // authenticated by its httpOnly cookie + CSRF header instead
   'post /admin/auth/logout',
+  // reference data the apps show in pickers before login (REF-1)
+  'get /cities',
+  'get /areas',
+  'get /services/categories',
   // dev-only stand-in for the storage bucket: authenticated by the signed link, not a token
   'put /dev/storage/{purpose}/{id}',
   'get /dev/storage/{purpose}/{id}',

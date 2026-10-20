@@ -43,6 +43,8 @@ const NO_CITY_ID = [
   'admin_credential',
   // belongs to a user; its city is the owner's
   'media',
+  // catalogue reference data: not city-specific
+  'service_category',
 ];
 
 describe('schema conventions (CLAUDE.md rule 9)', () => {
