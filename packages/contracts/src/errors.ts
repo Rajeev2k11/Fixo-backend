@@ -35,6 +35,11 @@ export const ErrorCode = {
   /** The uploaded file was refused (wrong type, too large, or failed the malware scan). */
   MEDIA_REJECTED: 'MEDIA_REJECTED',
   MEDIA_NOT_UPLOADED: 'MEDIA_NOT_UPLOADED',
+  /** The worker has submitted for review; the profile cannot change until sent back. */
+  PROFILE_LOCKED: 'PROFILE_LOCKED',
+  /** A newer agreement version exists: show it and accept that one. */
+  AGREEMENT_OUTDATED: 'AGREEMENT_OUTDATED',
+  AGREEMENT_NOT_PUBLISHED: 'AGREEMENT_NOT_PUBLISHED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

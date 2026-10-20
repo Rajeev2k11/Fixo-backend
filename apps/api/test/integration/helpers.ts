@@ -1,8 +1,10 @@
 import { randomInt } from 'node:crypto';
+import type { Server } from 'node:http';
 
 import type { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import type { Pool } from 'pg';
+import request from 'supertest';
 
 import type { OtpSmsJob } from '../../src/platform/sms/sms.js';
 
@@ -47,4 +49,32 @@ export async function resetSharedState(pool: Pool): Promise<void> {
   const keys = [...(await redis.keys(`${prefix}:rl:*`)), ...(await redis.keys(`${prefix}:cd:*`))];
   if (keys.length > 0) await redis.del(...keys);
   await redis.quit();
+}
+
+/** A tiny valid JPEG (magic bytes + filler). */
+export const jpegBytes = (size = 1024): Buffer =>
+  Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(size - 4, 7)]);
+
+/** Uploads a file the way the app does (request URL, PUT, complete) and returns its media id. */
+export async function uploadReady(
+  server: Server,
+  auth: string,
+  purpose: 'profile_photo' | 'kyc_selfie',
+  options: { complete?: boolean } = {},
+): Promise<string> {
+  const bytes = jpegBytes();
+  const res = await request(server)
+    .post('/v1/media/uploads')
+    .set('Authorization', auth)
+    .send({ purpose, contentType: 'image/jpeg', sizeBytes: bytes.length });
+  const { mediaId, uploadUrl } = res.body as { mediaId: string; uploadUrl: string };
+  const url = new URL(uploadUrl);
+  await request(server)
+    .put(`${url.pathname}${url.search}`)
+    .set('Content-Type', 'image/jpeg')
+    .send(bytes);
+  if (options.complete !== false) {
+    await request(server).post(`/v1/media/${mediaId}/complete`).set('Authorization', auth).send({});
+  }
+  return mediaId;
 }

@@ -126,6 +126,32 @@ export class MediaService {
     );
   }
 
+  /**
+   * For other modules: confirms `mediaId` is a ready file of `purpose` owned by `ownerUserId`,
+   * so a worker cannot attach someone else's photo or an unchecked upload.
+   */
+  async assertUsable(
+    ownerUserId: string,
+    mediaId: string,
+    purpose: MediaRow['purpose'],
+  ): Promise<void> {
+    const row = await this.repo.findOwned(this.db, mediaId, ownerUserId);
+    if (row?.status !== 'ready' || row.purpose !== purpose) {
+      throw new AppError(
+        ErrorCode.VALIDATION_FAILED,
+        400,
+        `Upload a ${purpose} first and use its id`,
+        { mediaId },
+      );
+    }
+  }
+
+  /** A fresh short-lived link to a file, for an owner or an already-authorised caller. */
+  async linkFor(mediaId: string): Promise<string | null> {
+    const row = await this.repo.findById(this.db, mediaId);
+    return row?.status === 'ready' ? this.view(row).downloadUrl : null;
+  }
+
   /** The caller's own file, with a fresh short-lived link when it is ready. */
   async get(auth: AuthContext, id: string): Promise<Media> {
     const row = await this.repo.findOwned(this.db, id, auth.userId);

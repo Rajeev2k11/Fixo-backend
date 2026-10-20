@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import type { Db, Tx } from '../../common/db.js';
 import type { UserStatus } from './domain/user.state-machine.js';
+import type { WorkerStatus } from './domain/worker.state-machine.js';
 import {
   adminProfile,
   adminRole,
@@ -11,6 +12,9 @@ import {
   user,
   userAdminRole,
   userStatusHistory,
+  workerAgreementAcceptance,
+  workerStatusHistory,
+  type WorkerProfileRow,
   type UserRow,
   workerProfile,
 } from './users.schema.js';
@@ -124,5 +128,80 @@ export class UsersRepository {
       .innerJoin(adminRole, eq(adminRole.id, userAdminRole.adminRoleId))
       .where(eq(userAdminRole.userId, userId));
     return rows.map((r) => r.code).toSorted();
+  }
+
+  async findWorkerProfile(db: Db | Tx, userId: string): Promise<WorkerProfileRow | undefined> {
+    const [row] = await db.select().from(workerProfile).where(eq(workerProfile.userId, userId));
+    return row;
+  }
+
+  async lockWorkerProfile(tx: Tx, userId: string): Promise<WorkerProfileRow | undefined> {
+    const [row] = await tx
+      .select()
+      .from(workerProfile)
+      .where(eq(workerProfile.userId, userId))
+      .for('update');
+    return row;
+  }
+
+  async updateWorkerProfile(
+    tx: Tx,
+    userId: string,
+    fields: { name?: string; photoMediaId?: string },
+  ): Promise<void> {
+    await tx
+      .update(workerProfile)
+      .set({ ...fields, updatedAt: new Date() })
+      .where(eq(workerProfile.userId, userId));
+  }
+
+  async setUserCity(tx: Tx, userId: string, cityId: string): Promise<void> {
+    await tx.update(user).set({ cityId, updatedAt: new Date() }).where(eq(user.id, userId));
+  }
+
+  /** Compare-and-set on version: undefined if someone else changed the profile first. */
+  async updateWorkerStatus(
+    tx: Tx,
+    userId: string,
+    to: WorkerStatus,
+    statusReason: string | null,
+    expectedVersion: number,
+  ): Promise<WorkerProfileRow | undefined> {
+    const [row] = await tx
+      .update(workerProfile)
+      .set({
+        status: to,
+        statusReason,
+        version: sql`${workerProfile.version} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(workerProfile.userId, userId), eq(workerProfile.version, expectedVersion)))
+      .returning();
+    return row;
+  }
+
+  async insertWorkerHistory(tx: Tx, entry: typeof workerStatusHistory.$inferInsert): Promise<void> {
+    await tx.insert(workerStatusHistory).values(entry);
+  }
+
+  /** Records an acceptance; accepting the same version again is a no-op. */
+  async acceptAgreement(tx: Tx, userId: string, version: string): Promise<void> {
+    await tx.insert(workerAgreementAcceptance).values({ userId, version }).onConflictDoNothing();
+  }
+
+  async latestAgreement(
+    db: Db | Tx,
+    userId: string,
+  ): Promise<{ version: string; acceptedAt: Date } | undefined> {
+    const [row] = await db
+      .select({
+        version: workerAgreementAcceptance.version,
+        acceptedAt: workerAgreementAcceptance.acceptedAt,
+      })
+      .from(workerAgreementAcceptance)
+      .where(eq(workerAgreementAcceptance.userId, userId))
+      .orderBy(desc(workerAgreementAcceptance.acceptedAt))
+      .limit(1);
+    return row;
   }
 }

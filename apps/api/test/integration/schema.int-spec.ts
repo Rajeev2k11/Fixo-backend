@@ -35,6 +35,8 @@ const NO_CITY_ID = [
   'admin_role',
   'user_admin_role',
   'user_status_history',
+  'worker_status_history',
+  'worker_agreement_acceptance',
   'otp_challenge',
   'session',
   'refresh_token',

@@ -134,6 +134,13 @@
       "when": 1792241174315,
       "tag": "0018_seed_media_config",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792242182274,
+      "tag": "0019_worker_onboarding",
+      "breakpoints": true
     }
   ]
 }

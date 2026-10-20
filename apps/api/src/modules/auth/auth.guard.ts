@@ -24,6 +24,7 @@ declare module 'express' {
 
 const PUBLIC = Symbol('PUBLIC');
 const ADMIN_ROLES = Symbol('ADMIN_ROLES');
+const APP_ROLES = Symbol('APP_ROLES');
 
 /** Opts a controller or route out of authentication. Everything else requires a valid token. */
 export const Public = (): ClassDecorator & MethodDecorator => SetMetadata(PUBLIC, true);
@@ -35,6 +36,10 @@ export const Public = (): ClassDecorator & MethodDecorator => SetMetadata(PUBLIC
  */
 export const AdminOnly = (...roles: string[]): ClassDecorator & MethodDecorator =>
   SetMetadata(ADMIN_ROLES, roles);
+
+/** Restricts a controller or route to sessions of the given app, e.g. `@AppRole('worker')`. */
+export const AppRole = (...roles: AuthContext['role'][]): ClassDecorator & MethodDecorator =>
+  SetMetadata(APP_ROLES, roles);
 
 /** The admin making the request (from @AdminOnly routes), as an Actor for audit and checks. */
 export const CurrentAdmin = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
@@ -70,6 +75,18 @@ export class AuthGuard implements CanActivate {
     const [scheme, token] = (req.header('authorization') ?? '').split(' ');
     const auth = await this.sessions.authenticate(scheme === 'Bearer' && token ? token : '');
     req.auth = auth;
+
+    const appRoles = this.reflector.getAllAndOverride<string[] | undefined>(APP_ROLES, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (appRoles && !appRoles.includes(auth.role)) {
+      throw new AppError(
+        ErrorCode.FORBIDDEN,
+        403,
+        `This is only available in the ${appRoles.join('/')} app`,
+      );
+    }
 
     const allowed = this.reflector.getAllAndOverride<string[] | undefined>(ADMIN_ROLES, [
       context.getHandler(),

@@ -13,6 +13,11 @@ export class MediaRepository {
     return row;
   }
 
+  async findById(db: Db | Tx, id: string): Promise<MediaRow | undefined> {
+    const [row] = await db.select().from(media).where(eq(media.id, id));
+    return row;
+  }
+
   /** The row only if `ownerUserId` owns it: other users' files look like they do not exist. */
   async findOwned(db: Db | Tx, id: string, ownerUserId: string): Promise<MediaRow | undefined> {
     const [row] = await db

@@ -1,4 +1,7 @@
 import {
+  acceptAgreementSchema,
+  updateWorkerProfileSchema,
+  workerProfileSchema,
   mediaSchema,
   mediaUploadRequestSchema,
   mediaUploadResponseSchema,
@@ -98,6 +101,12 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     servers: [{ url: '/v1' }],
     tags: [
       { name: 'auth', description: 'Phone OTP login (customers and workers)' },
+      {
+        name: 'workers',
+        description:
+          'Worker app onboarding (worker sessions only). `missing` lists what is left before ' +
+          'the worker can submit for review.',
+      },
       {
         name: 'media',
         description:
@@ -412,6 +421,47 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           responses: {
             '200': { description: 'File', content: json(output(mediaSchema)) },
             '404': error('No such file of yours', ['NOT_FOUND']),
+            ...authErrors,
+          },
+        },
+      },
+      '/workers/me': {
+        get: {
+          tags: ['workers'],
+          summary: 'Your worker profile, status and onboarding checklist',
+          ...secured(),
+          responses: {
+            '200': { description: 'Profile', content: json(output(workerProfileSchema)) },
+            ...authErrors,
+          },
+        },
+        patch: {
+          tags: ['workers'],
+          summary: 'Set name, photo (a ready profile_photo upload) and city',
+          description: 'Only while the status is registered (before submitting, or when sent back).',
+          ...secured(),
+          requestBody: {
+            required: true,
+            content: json(input(updateWorkerProfileSchema), { name: 'Ramesh Kumar' }),
+          },
+          responses: {
+            '200': { description: 'Updated profile', content: json(output(workerProfileSchema)) },
+            '400': error('Invalid field, unusable photo, or city not served', ['VALIDATION_FAILED']),
+            '409': error('Profile is under review', ['PROFILE_LOCKED']),
+            ...authErrors,
+          },
+        },
+      },
+      '/workers/me/agreement': {
+        post: {
+          tags: ['workers'],
+          summary: 'Accept the current worker agreement version',
+          ...secured(),
+          requestBody: { required: true, content: json(input(acceptAgreementSchema)) },
+          responses: {
+            '200': { description: 'Accepted', content: json(output(workerProfileSchema)) },
+            '409': error('A newer version exists', ['AGREEMENT_OUTDATED']),
+            '503': error('No agreement published yet', ['AGREEMENT_NOT_PUBLISHED']),
             ...authErrors,
           },
         },

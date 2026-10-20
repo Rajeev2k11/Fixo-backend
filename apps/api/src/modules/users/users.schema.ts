@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
-import { check, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { check, index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 import { city } from '../geo/geo.schema.js';
+import { WORKER_STATUSES } from './domain/worker.state-machine.js';
 
 // Identity (spec §K, decision SPEC-3): one user, many linked auth identities and role profiles.
 
@@ -50,17 +51,66 @@ export const customerProfile = pgTable('customer_profile', {
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Onboarding fields and the worker status machine arrive in Phase 2. */
-export const workerProfile = pgTable('worker_profile', {
+/**
+ * A worker's identity profile and onboarding status (decision WORKER-1). Status changes only
+ * through WorkerProfileService.transition() (compare-and-set on version, history, event).
+ * Areas, services and availability belong to the workers module (Phase 3).
+ */
+export const workerProfile = pgTable(
+  'worker_profile',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .unique()
+      .references(() => user.id),
+    name: text(),
+    // A ready profile_photo owned by this user (checked by the service; no FK, to keep the
+    // users and media schemas from importing each other).
+    photoMediaId: uuid(),
+    status: text({ enum: WORKER_STATUSES }).notNull().default('registered'),
+    version: integer().notNull().default(1),
+    statusReason: text(), // why it was rejected or sent back for resubmission, shown to the worker
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'worker_profile_status_check',
+      sql`${t.status} in ('registered', 'kyc_pending', 'under_review', 'verified', 'rejected', 'suspended')`,
+    ),
+    // The admin verification queue reads open statuses only.
+    index('worker_profile_review_idx')
+      .on(t.status, t.updatedAt)
+      .where(sql`${t.status} in ('kyc_pending', 'under_review')`),
+  ],
+);
+
+export const workerStatusHistory = pgTable('worker_status_history', {
   id: uuid().primaryKey().defaultRandom(),
   userId: uuid()
     .notNull()
-    .unique()
     .references(() => user.id),
-  name: text(),
+  fromStatus: text().notNull(),
+  toStatus: text().notNull(),
+  actorUserId: uuid().references(() => user.id), // null: the system (e.g. KYC expiry)
+  reason: text().notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Every agreement version a worker accepted, and when (spec §C.6). Append-only by use. */
+export const workerAgreementAcceptance = pgTable(
+  'worker_agreement_acceptance',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => user.id),
+    version: text().notNull(),
+    acceptedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('worker_agreement_acceptance_user_version_unique').on(t.userId, t.version)],
+);
 
 export const adminProfile = pgTable('admin_profile', {
   id: uuid().primaryKey().defaultRandom(),
@@ -109,3 +159,4 @@ export const userStatusHistory = pgTable('user_status_history', {
 });
 
 export type UserRow = typeof user.$inferSelect;
+export type WorkerProfileRow = typeof workerProfile.$inferSelect;
